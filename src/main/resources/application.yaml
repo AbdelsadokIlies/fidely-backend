@@ -1,3 +1,15 @@
 spring:
   application:
     name: Fidely-backend
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/fidely_DB
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+  flyway:
+    enabled: true
