@@ -28,6 +28,13 @@ public class LoyaltyTransactionService {
     private final ITicketService ticketService;
     private final IPointRuleService pointRuleService;
 
+    /**
+     * Crée le service de gestion des transactions de fidélité.
+     *
+     * @param loyaltyRepository repository des programmes de fidélité
+     * @param ticketService service de gestion des tickets
+     * @param pointRuleService service de gestion des règles de points
+     */
     public LoyaltyTransactionService(
             ILoyaltyRepository loyaltyRepository,
             ITicketService ticketService,

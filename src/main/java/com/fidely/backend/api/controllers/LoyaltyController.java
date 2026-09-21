@@ -15,11 +15,19 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Contrôleur REST permettant de gérer les programmes de fidélité.
+ */
 @RestController
 @RequestMapping("/api/loyalties")
 @Tag(
@@ -31,6 +39,12 @@ public class LoyaltyController {
     private final ILoyaltyService loyaltyService;
     private final LoyaltyDtoMapper loyaltyDtoMapper;
 
+    /**
+     * Crée un contrôleur de gestion des programmes de fidélité.
+     *
+     * @param loyaltyService service de gestion des programmes de fidélité
+     * @param loyaltyDtoMapper mapper entre les modèles et les DTO
+     */
     public LoyaltyController(
             ILoyaltyService loyaltyService,
             LoyaltyDtoMapper loyaltyDtoMapper
@@ -39,6 +53,12 @@ public class LoyaltyController {
         this.loyaltyDtoMapper = loyaltyDtoMapper;
     }
 
+    /**
+     * Crée un nouveau programme de fidélité.
+     *
+     * @param request données nécessaires à la création
+     * @return programme de fidélité créé
+     */
     @PostMapping
     @Operation(
             summary = "Créer une fidélité",
@@ -67,6 +87,12 @@ public class LoyaltyController {
                 .body(loyaltyDtoMapper.toResponse(loyalty));
     }
 
+    /**
+     * Récupère un programme de fidélité par son identifiant.
+     *
+     * @param loyaltyId identifiant du programme de fidélité
+     * @return programme de fidélité trouvé ou réponse 404
+     */
     @GetMapping("/{loyaltyId}")
     @Operation(
             summary = "Récupérer une fidélité",
@@ -96,6 +122,13 @@ public class LoyaltyController {
                 );
     }
 
+    /**
+     * Ajoute des points à un programme de fidélité.
+     *
+     * @param loyaltyId identifiant du programme de fidélité
+     * @param request nombre de points à ajouter
+     * @return réponse sans contenu
+     */
     @PostMapping("/{loyaltyId}/points")
     @Operation(
             summary = "Ajouter des points",
@@ -127,6 +160,13 @@ public class LoyaltyController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Retire des points d'un programme de fidélité.
+     *
+     * @param loyaltyId identifiant du programme de fidélité
+     * @param request nombre de points à retirer
+     * @return réponse sans contenu
+     */
     @PostMapping("/{loyaltyId}/points/deduct")
     @Operation(
             summary = "Retirer des points",
@@ -158,6 +198,12 @@ public class LoyaltyController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Récupère les programmes de fidélité d'un client.
+     *
+     * @param customerId identifiant du client
+     * @return liste des programmes de fidélité
+     */
     @GetMapping("/customer/{customerId}")
     @Operation(
             summary = "Récupérer les fidélités d'un client",
@@ -180,6 +226,12 @@ public class LoyaltyController {
         return ResponseEntity.ok(loyalties);
     }
 
+    /**
+     * Récupère les programmes de fidélité d'un marchand.
+     *
+     * @param merchantId identifiant du marchand
+     * @return liste des programmes de fidélité
+     */
     @GetMapping("/merchant/{merchantId}")
     @Operation(
             summary = "Récupérer les fidélités d'un marchand",
@@ -202,6 +254,13 @@ public class LoyaltyController {
         return ResponseEntity.ok(loyalties);
     }
 
+    /**
+     * Récupère le programme de fidélité d'un client chez un marchand.
+     *
+     * @param customerId identifiant du client
+     * @param merchantId identifiant du marchand
+     * @return programme de fidélité trouvé ou réponse 404
+     */
     @GetMapping("/customer/{customerId}/merchant/{merchantId}")
     @Operation(
             summary = "Récupérer une fidélité client/marchand",
@@ -230,6 +289,12 @@ public class LoyaltyController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    /**
+     * Récupère les transactions d'un programme de fidélité.
+     *
+     * @param loyaltyId identifiant du programme de fidélité
+     * @return liste des transactions
+     */
     @GetMapping("/{loyaltyId}/transactions")
     @Operation(
             summary = "Récupérer les transactions d'une fidélité",
@@ -252,6 +317,12 @@ public class LoyaltyController {
         return ResponseEntity.ok(transactions);
     }
 
+    /**
+     * Récupère la transaction de fidélité associée à un ticket.
+     *
+     * @param ticketId identifiant du ticket
+     * @return transaction trouvée ou réponse 404
+     */
     @GetMapping("/transactions/ticket/{ticketId}")
     @Operation(
             summary = "Récupérer la transaction d'un ticket",
