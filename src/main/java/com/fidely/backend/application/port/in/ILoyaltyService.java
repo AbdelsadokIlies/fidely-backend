@@ -7,13 +7,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-/**
- * Port d'entrée permettant de gérer les programmes de fidélité
- * et leurs transactions de points.
- */
 public interface ILoyaltyService {
 
-    Loyalty createLoyalty(Loyalty loyalty);
+    Loyalty createLoyalty(
+            UUID customerId,
+            UUID merchantId
+    );
 
     Optional<Loyalty> getLoyaltyById(UUID loyaltyId);
 

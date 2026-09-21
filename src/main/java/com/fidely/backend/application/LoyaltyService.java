@@ -7,6 +7,7 @@ import com.fidely.backend.domain.models.loyalties.LoyaltyTransaction;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,7 +32,21 @@ public class LoyaltyService implements ILoyaltyService {
     }
 
     @Override
-    public Loyalty createLoyalty(Loyalty loyalty) {
+    public Loyalty createLoyalty(
+            UUID customerId,
+            UUID merchantId
+    ) {
+        LocalDateTime now = LocalDateTime.now();
+
+        Loyalty loyalty = new Loyalty(
+                UUID.randomUUID(),
+                customerId,
+                merchantId,
+                0,
+                now,
+                now
+        );
+
         return loyaltyRepository.save(loyalty);
     }
 
