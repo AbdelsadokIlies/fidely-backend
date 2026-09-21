@@ -1,4 +1,7 @@
 spring:
+  config:
+    import: optional:file:../.env[.properties]
+
   application:
     name: Fidely-backend
 
@@ -8,8 +11,13 @@ spring:
     password: ${POSTGRES_PASSWORD}
 
   jpa:
-    hibernate:
-      ddl-auto: validate
+    properties:
+      jakarta:
+        persistence:
+          schema-generation:
+            scripts:
+              action: create
+              create-target: create.sql
 
   flyway:
     enabled: true
