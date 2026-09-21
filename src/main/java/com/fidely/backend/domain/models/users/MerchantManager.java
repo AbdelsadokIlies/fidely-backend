@@ -14,7 +14,7 @@ public class MerchantManager extends User {
     private final UUID merchantId;
 
     /**
-     * Crée un nouveau marchand.
+     * Crée un nouveau manager de marchand.
      *
      * @param id identifiant du marchand
      * @param merchantId id de la société du marchand

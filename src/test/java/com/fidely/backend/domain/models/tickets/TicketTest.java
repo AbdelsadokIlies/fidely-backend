@@ -22,7 +22,6 @@ class TicketTest {
     private final LocalTime ticketTime = LocalTime.of(14, 30);
     private final BigDecimal amount = new BigDecimal("42.50");
     private final String rawOcrText = "Ticket de caisse";
-    private final String imageStorageRef = "tickets/image-123.jpg";
     private final LocalDateTime createdAt = LocalDateTime.of(2026, 9, 20, 15, 0);
 
 
@@ -40,7 +39,6 @@ class TicketTest {
         assertEquals(ticketTime, ticket.getTicketTime());
         assertEquals(amount, ticket.getAmount());
         assertEquals(rawOcrText, ticket.getRawOcrText());
-        assertEquals(imageStorageRef, ticket.getImageStorageRef());
         assertEquals(TicketStatus.PENDING, ticket.getStatus());
         assertNull(ticket.getRejectionReason());
         assertEquals(createdAt, ticket.getCreatedAt());
@@ -88,7 +86,6 @@ class TicketTest {
                         ticketTime,
                         amount,
                         rawOcrText,
-                        imageStorageRef,
                         TicketStatus.PENDING,
                         null,
                         createdAt
@@ -111,7 +108,6 @@ class TicketTest {
                         ticketTime,
                         amount,
                         rawOcrText,
-                        imageStorageRef,
                         TicketStatus.PENDING,
                         null,
                         createdAt
@@ -403,7 +399,6 @@ class TicketTest {
                 ticketTime,
                 amount,
                 rawOcrText,
-                imageStorageRef,
                 TicketStatus.PENDING,
                 null,
                 createdAt
@@ -421,7 +416,6 @@ class TicketTest {
                 ticketTime,
                 amount,
                 rawOcrText,
-                imageStorageRef,
                 TicketStatus.PENDING,
                 null,
                 createdAt
@@ -439,7 +433,6 @@ class TicketTest {
                 ticketTime,
                 amount,
                 rawOcrText,
-                imageStorageRef,
                 TicketStatus.PENDING,
                 null,
                 createdAt
@@ -457,7 +450,6 @@ class TicketTest {
                 ticketTime,
                 amount,
                 rawOcrText,
-                imageStorageRef,
                 TicketStatus.PENDING,
                 null,
                 createdAt
@@ -475,7 +467,6 @@ class TicketTest {
                 time,
                 amount,
                 rawOcrText,
-                imageStorageRef,
                 TicketStatus.PENDING,
                 null,
                 createdAt
@@ -496,7 +487,6 @@ class TicketTest {
                 ticketTime,
                 amount,
                 rawOcrText,
-                imageStorageRef,
                 status,
                 rejectionReason,
                 createdAt
@@ -514,7 +504,6 @@ class TicketTest {
                 ticketTime,
                 amount,
                 rawOcrText,
-                imageStorageRef,
                 TicketStatus.PENDING,
                 null,
                 dateTime

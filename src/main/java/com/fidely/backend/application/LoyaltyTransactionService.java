@@ -16,10 +16,17 @@ import java.util.UUID;
 
 /**
  * Service responsable de l'exécution transactionnelle
- * d'une opération d'ajout de points à partir d'un ticket.
+ * d'une opération complète d'attribution de points.
  *
- * <p>Chaque appel à {@link #addPointsFromTicket(UUID)} correspond
- * à une tentative complète et atomique.</p>
+ * <p>Ce service orchestre les différentes opérations nécessaires
+ * au traitement d'un ticket : création du ticket à partir de l'image,
+ * vérification de son utilisation, détermination de la règle de points,
+ * calcul des points, mise à jour de la fidélité, création de la
+ * transaction de fidélité et validation du ticket.</p>
+ *
+ * <p>L'ensemble de l'opération est exécuté dans une transaction
+ * afin de garantir qu'une attribution partiellement effectuée
+ * ne puisse pas être persistée.</p>
  */
 @Service
 public class LoyaltyTransactionService {
@@ -29,7 +36,8 @@ public class LoyaltyTransactionService {
     private final IPointRuleService pointRuleService;
 
     /**
-     * Crée le service de gestion des transactions de fidélité.
+     * Construit le service d'exécution transactionnelle
+     * des opérations de fidélité.
      *
      * @param loyaltyRepository repository des programmes de fidélité
      * @param ticketService service de gestion des tickets
@@ -46,31 +54,38 @@ public class LoyaltyTransactionService {
     }
 
     /**
-     * Exécute une tentative complète d'attribution des points.
+     * Exécute une tentative complète d'attribution des points
+     * à partir d'une image de ticket.
      *
-     * <p>Si une erreur survient, l'ensemble de la transaction
-     * est rollbacké.</p>
+     * <p>Le ticket est d'abord analysé par le service OCR via
+     * le {@link ITicketService}. Une fois créé, les données du ticket
+     * permettent de déterminer la règle de points applicable et
+     * de calculer le nombre de points à attribuer.</p>
      *
-     * @param ticketId identifiant du ticket
+     * <p>Si une erreur survient au cours du traitement, l'ensemble
+     * de la transaction est rollbacké.</p>
+     *
+     * @param loyaltyId identifiant du programme de fidélité
+     * @param image image du ticket de caisse
+     * @return le programme de fidélité mis à jour
      */
     @Transactional
-    public void addPointsFromTicket(UUID ticketId) {
-
-        Ticket ticket = ticketService.getTicketById(ticketId)
+    public Loyalty addPointsFromTicket(
+            UUID loyaltyId,
+            byte[] image
+    ) {
+        Loyalty loyalty = loyaltyRepository.findById(loyaltyId)
                 .orElseThrow(() ->
                         new IllegalArgumentException(
-                                "Ticket introuvable : " + ticketId
+                                "Loyalty introuvable : " + loyaltyId
                         )
                 );
 
-        List<LoyaltyTransaction> existingTransactions =
-                loyaltyRepository.findTransactionsByTicketId(ticketId);
-
-        if (!existingTransactions.isEmpty()) {
-            throw new IllegalStateException(
-                    "Points already awarded for ticket : " + ticketId
-            );
-        }
+        Ticket ticket = ticketService.createTicketFromOcr(
+                image,
+                loyalty.getMerchantId(),
+                loyalty.getCustomerId()
+        );
 
         LocalDateTime ticketDateTime = LocalDateTime.of(
                 ticket.getTicketDate(),
@@ -88,27 +103,16 @@ public class LoyaltyTransactionService {
                         )
                 );
 
-        int points =
-                pointRule.calculatePoints(ticket.getAmount());
+        int points = pointRule.calculatePoints(
+                ticket.getAmount()
+        );
 
         if (points <= 0) {
             throw new IllegalStateException(
-                    "Le ticket ne génère aucun point : " + ticketId
+                    "Le ticket ne génère aucun point : "
+                            + ticket.getId()
             );
         }
-
-        Loyalty loyalty =
-                loyaltyRepository
-                        .findByCustomerIdAndMerchantId(
-                                ticket.getCustomerId(),
-                                ticket.getMerchantId()
-                        )
-                        .orElseThrow(() ->
-                                new IllegalStateException(
-                                        "Loyalty introuvable pour le client : "
-                                                + ticket.getCustomerId()
-                                )
-                        );
 
         loyalty.addPoints(points);
 
@@ -127,6 +131,8 @@ public class LoyaltyTransactionService {
 
         loyaltyRepository.saveTransaction(transaction);
 
-        ticketService.validateTicket(ticketId);
+        ticketService.validateTicket(ticket.getId());
+
+        return loyalty;
     }
 }

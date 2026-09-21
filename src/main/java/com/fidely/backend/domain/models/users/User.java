@@ -29,7 +29,7 @@ public abstract class User {
      * @param id identifiant de l'utilisateur
      * @param email adresse e-mail de l'utilisateur
      * @param firstName prénom de l'utilisateur
-     * @param lastName nom e-mail de l'utilisateur
+     * @param lastName nom de l'utilisateur
      * @param passwordHash hash du mot de passe de l'utilisateur
      * @param emailVerified indique si l'adresse e-mail a été vérifiée
      * @param active indique si le compte est actif

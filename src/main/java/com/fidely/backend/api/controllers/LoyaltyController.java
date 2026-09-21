@@ -14,14 +14,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
@@ -120,82 +118,6 @@ public class LoyaltyController {
                 .orElseGet(() ->
                         ResponseEntity.notFound().build()
                 );
-    }
-
-    /**
-     * Ajoute des points à un programme de fidélité.
-     *
-     * @param loyaltyId identifiant du programme de fidélité
-     * @param request nombre de points à ajouter
-     * @return réponse sans contenu
-     */
-    @PostMapping("/{loyaltyId}/points")
-    @Operation(
-            summary = "Ajouter des points",
-            description = "Ajoute des points au solde d'une fidélité."
-    )
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "204",
-                    description = "Points ajoutés"
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Fidélité introuvable"
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Nombre de points invalide"
-            )
-    })
-    public ResponseEntity<Void> addPoints(
-            @PathVariable UUID loyaltyId,
-            @Valid @RequestBody PointsRequest request
-    ) {
-        loyaltyService.addPoints(
-                loyaltyId,
-                request.points()
-        );
-
-        return ResponseEntity.noContent().build();
-    }
-
-    /**
-     * Retire des points d'un programme de fidélité.
-     *
-     * @param loyaltyId identifiant du programme de fidélité
-     * @param request nombre de points à retirer
-     * @return réponse sans contenu
-     */
-    @PostMapping("/{loyaltyId}/points/deduct")
-    @Operation(
-            summary = "Retirer des points",
-            description = "Retire des points du solde d'une fidélité."
-    )
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "204",
-                    description = "Points retirés"
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Nombre de points invalide ou solde insuffisant"
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Fidélité introuvable"
-            )
-    })
-    public ResponseEntity<Void> removePoints(
-            @PathVariable UUID loyaltyId,
-            @Valid @RequestBody PointsRequest request
-    ) {
-        loyaltyService.removePoints(
-                loyaltyId,
-                request.points()
-        );
-
-        return ResponseEntity.noContent().build();
     }
 
     /**
@@ -348,5 +270,64 @@ public class LoyaltyController {
                 .map(loyaltyDtoMapper::toResponse)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Traite un ticket de caisse afin d'attribuer automatiquement
+     * les points de fidélité correspondants.
+     *
+     * <p>Cette opération constitue le point d'entrée principal du
+     * parcours de fidélité. Elle déclenche le traitement du ticket,
+     * son analyse OCR, le calcul des points selon la règle de fidélité
+     * applicable et leur attribution au programme de fidélité.</p>
+     *
+     * @param loyaltyId identifiant du programme de fidélité
+     * @param image image du ticket de caisse
+     * @return le programme de fidélité mis à jour
+     * @throws IOException si la lecture de l'image échoue
+     */
+    @PostMapping(
+            value = "/{loyaltyId}/earn",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    @Operation(
+            summary = "Gagner des points avec un ticket",
+            description = "Analyse un ticket de caisse, calcule les points "
+                    + "de fidélité et les attribue automatiquement."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Points attribués avec succès"
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Ticket invalide"
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Fidélité introuvable"
+            )
+    })
+    public ResponseEntity<LoyaltyResponse> earnPointsFromTicket(
+            @Parameter(
+                    description = "Identifiant du programme de fidélité"
+            )
+            @PathVariable UUID loyaltyId,
+
+            @Parameter(
+                    description = "Image du ticket de caisse"
+            )
+            @RequestParam("image") MultipartFile image
+    ) throws IOException {
+
+        Loyalty loyalty = loyaltyService.addPointsFromTicket(
+                loyaltyId,
+                image.getBytes()
+        );
+
+        return ResponseEntity.ok(
+                loyaltyDtoMapper.toResponse(loyalty)
+        );
     }
 }

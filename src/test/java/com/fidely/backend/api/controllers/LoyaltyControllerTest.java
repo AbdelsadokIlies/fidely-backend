@@ -12,18 +12,29 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.mock.web.MockMultipartFile;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
-import static org.mockito.Mockito.doNothing;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * Tests du contrôleur REST de gestion des programmes de fidélité.
+ *
+ * <p>Ces tests vérifient le comportement HTTP du contrôleur
+ * indépendamment de l'implémentation réelle des services.</p>
+ */
 @WebMvcTest(LoyaltyController.class)
 class LoyaltyControllerTest {
 
@@ -36,8 +47,15 @@ class LoyaltyControllerTest {
     @MockitoBean
     private LoyaltyDtoMapper loyaltyDtoMapper;
 
+    /**
+     * Vérifie qu'un programme de fidélité peut être créé
+     * à partir d'une requête valide.
+     *
+     * @throws Exception si l'appel HTTP échoue
+     */
     @Test
     void shouldCreateLoyalty() throws Exception {
+
         UUID loyaltyId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
         UUID merchantId = UUID.randomUUID();
@@ -47,8 +65,8 @@ class LoyaltyControllerTest {
                 customerId,
                 merchantId,
                 0,
-                java.time.LocalDateTime.now(),
-                java.time.LocalDateTime.now()
+                LocalDateTime.now(),
+                LocalDateTime.now()
         );
 
         LoyaltyResponse response = new LoyaltyResponse(
@@ -58,8 +76,10 @@ class LoyaltyControllerTest {
                 0
         );
 
-        when(loyaltyService.createLoyalty(customerId, merchantId))
-                .thenReturn(loyalty);
+        when(loyaltyService.createLoyalty(
+                customerId,
+                merchantId
+        )).thenReturn(loyalty);
 
         when(loyaltyDtoMapper.toResponse(loyalty))
                 .thenReturn(response);
@@ -69,21 +89,61 @@ class LoyaltyControllerTest {
                     "customerId": "%s",
                     "merchantId": "%s"
                 }
-                """.formatted(customerId, merchantId);
+                """.formatted(
+                customerId,
+                merchantId
+        );
 
-        mockMvc.perform(post("/api/loyalties")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
+        mockMvc.perform(
+                        post("/api/loyalties")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody)
+                )
                 .andExpect(status().isCreated())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.id").value(loyaltyId.toString()))
-                .andExpect(jsonPath("$.customerId").value(customerId.toString()))
-                .andExpect(jsonPath("$.merchantId").value(merchantId.toString()))
-                .andExpect(jsonPath("$.pointsBalance").value(0));
+                .andExpect(jsonPath("$.id")
+                        .value(loyaltyId.toString()))
+                .andExpect(jsonPath("$.customerId")
+                        .value(customerId.toString()))
+                .andExpect(jsonPath("$.merchantId")
+                        .value(merchantId.toString()))
+                .andExpect(jsonPath("$.pointsBalance")
+                        .value(0));
     }
 
+    /**
+     * Vérifie qu'une requête de création invalide
+     * retourne une réponse HTTP 400.
+     *
+     * @throws Exception si l'appel HTTP échoue
+     */
+    @Test
+    void shouldRejectInvalidCreateRequest() throws Exception {
+
+        String requestBody = """
+                {
+                    "customerId": null,
+                    "merchantId": null
+                }
+                """;
+
+        mockMvc.perform(
+                        post("/api/loyalties")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody)
+                )
+                .andExpect(status().isBadRequest());
+    }
+
+    /**
+     * Vérifie qu'un programme de fidélité existant
+     * peut être récupéré par son identifiant.
+     *
+     * @throws Exception si l'appel HTTP échoue
+     */
     @Test
     void shouldGetLoyalty() throws Exception {
+
         UUID loyaltyId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
         UUID merchantId = UUID.randomUUID();
@@ -93,8 +153,8 @@ class LoyaltyControllerTest {
                 customerId,
                 merchantId,
                 100,
-                java.time.LocalDateTime.now(),
-                java.time.LocalDateTime.now()
+                LocalDateTime.now(),
+                LocalDateTime.now()
         );
 
         LoyaltyResponse response = new LoyaltyResponse(
@@ -105,130 +165,55 @@ class LoyaltyControllerTest {
         );
 
         when(loyaltyService.getLoyaltyById(loyaltyId))
-                .thenReturn(java.util.Optional.of(loyalty));
+                .thenReturn(Optional.of(loyalty));
 
         when(loyaltyDtoMapper.toResponse(loyalty))
                 .thenReturn(response);
 
-        mockMvc.perform(get("/api/loyalties/{loyaltyId}", loyaltyId))
+        mockMvc.perform(
+                        get("/api/loyalties/{loyaltyId}", loyaltyId)
+                )
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.id").value(loyaltyId.toString()))
-                .andExpect(jsonPath("$.customerId").value(customerId.toString()))
-                .andExpect(jsonPath("$.merchantId").value(merchantId.toString()))
-                .andExpect(jsonPath("$.pointsBalance").value(100));
+                .andExpect(jsonPath("$.id")
+                        .value(loyaltyId.toString()))
+                .andExpect(jsonPath("$.customerId")
+                        .value(customerId.toString()))
+                .andExpect(jsonPath("$.merchantId")
+                        .value(merchantId.toString()))
+                .andExpect(jsonPath("$.pointsBalance")
+                        .value(100));
     }
 
+    /**
+     * Vérifie qu'un programme de fidélité inexistant
+     * retourne une réponse HTTP 404.
+     *
+     * @throws Exception si l'appel HTTP échoue
+     */
     @Test
     void shouldReturn404WhenLoyaltyDoesNotExist() throws Exception {
+
         UUID loyaltyId = UUID.randomUUID();
 
         when(loyaltyService.getLoyaltyById(loyaltyId))
-                .thenReturn(java.util.Optional.empty());
+                .thenReturn(Optional.empty());
 
-        mockMvc.perform(get("/api/loyalties/{loyaltyId}", loyaltyId))
+        mockMvc.perform(
+                        get("/api/loyalties/{loyaltyId}", loyaltyId)
+                )
                 .andExpect(status().isNotFound());
     }
 
+    /**
+     * Vérifie que les transactions d'un programme
+     * de fidélité peuvent être récupérées.
+     *
+     * @throws Exception si l'appel HTTP échoue
+     */
     @Test
-    void shouldAddPoints() throws Exception {
-        UUID loyaltyId = UUID.randomUUID();
-
-        doNothing()
-                .when(loyaltyService)
-                .addPoints(loyaltyId, 50);
-
-        String requestBody = """
-                {
-                    "points": 50
-                }
-                """;
-
-        mockMvc.perform(post(
-                        "/api/loyalties/{loyaltyId}/points",
-                        loyaltyId
-                )
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isNoContent());
-    }
-
-    @Test
-    void shouldRemovePoints() throws Exception {
-        UUID loyaltyId = UUID.randomUUID();
-
-        doNothing()
-                .when(loyaltyService)
-                .removePoints(loyaltyId, 30);
-
-        String requestBody = """
-                {
-                    "points": 30
-                }
-                """;
-
-        mockMvc.perform(post(
-                        "/api/loyalties/{loyaltyId}/points/deduct",
-                        loyaltyId
-                )
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isNoContent());
-    }
-
-    @Test
-    void shouldRejectInvalidPointsWhenAdding() throws Exception {
-        UUID loyaltyId = UUID.randomUUID();
-
-        String requestBody = """
-                {
-                    "points": 0
-                }
-                """;
-
-        mockMvc.perform(post(
-                        "/api/loyalties/{loyaltyId}/points",
-                        loyaltyId
-                )
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void shouldRejectInvalidPointsWhenRemoving() throws Exception {
-        UUID loyaltyId = UUID.randomUUID();
-
-        String requestBody = """
-                {
-                    "points": -10
-                }
-                """;
-
-        mockMvc.perform(post(
-                        "/api/loyalties/{loyaltyId}/points/deduct",
-                        loyaltyId
-                )
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void shouldRejectInvalidCreateRequest() throws Exception {
-        String requestBody = """
-                {
-                    "customerId": null,
-                    "merchantId": null
-                }
-                """;
-
-        mockMvc.perform(post("/api/loyalties")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
-                .andExpect(status().isBadRequest());
-    }@Test
     void shouldGetTransactionsByLoyalty() throws Exception {
+
         UUID loyaltyId = UUID.randomUUID();
         UUID transactionId = UUID.randomUUID();
         UUID ticketId = UUID.randomUUID();
@@ -239,7 +224,7 @@ class LoyaltyControllerTest {
                 ticketId,
                 112,
                 "Points gagnés sur le ticket TEST-001",
-                java.time.LocalDateTime.now()
+                LocalDateTime.now()
         );
 
         LoyaltyTransactionResponse response =
@@ -259,7 +244,10 @@ class LoyaltyControllerTest {
                 .thenReturn(response);
 
         mockMvc.perform(
-                        get("/api/loyalties/{loyaltyId}/transactions", loyaltyId)
+                        get(
+                                "/api/loyalties/{loyaltyId}/transactions",
+                                loyaltyId
+                        )
                 )
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -272,11 +260,20 @@ class LoyaltyControllerTest {
                 .andExpect(jsonPath("$[0].points")
                         .value(112))
                 .andExpect(jsonPath("$[0].description")
-                        .value("Points gagnés sur le ticket TEST-001"));
+                        .value(
+                                "Points gagnés sur le ticket TEST-001"
+                        ));
     }
 
+    /**
+     * Vérifie qu'une transaction associée à un ticket
+     * peut être récupérée.
+     *
+     * @throws Exception si l'appel HTTP échoue
+     */
     @Test
     void shouldGetTransactionByTicket() throws Exception {
+
         UUID loyaltyId = UUID.randomUUID();
         UUID transactionId = UUID.randomUUID();
         UUID ticketId = UUID.randomUUID();
@@ -287,7 +284,7 @@ class LoyaltyControllerTest {
                 ticketId,
                 112,
                 "Points gagnés sur le ticket TEST-001",
-                java.time.LocalDateTime.now()
+                LocalDateTime.now()
         );
 
         LoyaltyTransactionResponse response =
@@ -307,7 +304,10 @@ class LoyaltyControllerTest {
                 .thenReturn(response);
 
         mockMvc.perform(
-                        get("/api/loyalties/transactions/ticket/{ticketId}", ticketId)
+                        get(
+                                "/api/loyalties/transactions/ticket/{ticketId}",
+                                ticketId
+                        )
                 )
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -319,5 +319,95 @@ class LoyaltyControllerTest {
                         .value(ticketId.toString()))
                 .andExpect(jsonPath("$.points")
                         .value(112));
+    }
+
+    /**
+     * Vérifie qu'une image de ticket peut être envoyée
+     * afin d'attribuer des points à une fidélité.
+     *
+     * @throws Exception si l'appel HTTP échoue
+     */
+    @Test
+    void shouldEarnPointsFromTicketImage() throws Exception {
+
+        UUID loyaltyId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        UUID merchantId = UUID.randomUUID();
+
+        Loyalty loyalty = new Loyalty(
+                loyaltyId,
+                customerId,
+                merchantId,
+                112,
+                LocalDateTime.now(),
+                LocalDateTime.now()
+        );
+
+        LoyaltyResponse response = new LoyaltyResponse(
+                loyaltyId,
+                customerId,
+                merchantId,
+                112
+        );
+
+        byte[] imageBytes =
+                "fake-ticket-image".getBytes();
+
+        MockMultipartFile image =
+                new MockMultipartFile(
+                        "image",
+                        "ticket.jpg",
+                        MediaType.IMAGE_JPEG_VALUE,
+                        imageBytes
+                );
+
+        when(
+                loyaltyService.addPointsFromTicket(
+                        eq(loyaltyId),
+                        any(byte[].class)
+                )
+        ).thenReturn(loyalty);
+
+        when(loyaltyDtoMapper.toResponse(loyalty))
+                .thenReturn(response);
+
+        mockMvc.perform(
+                        multipart(
+                                "/api/loyalties/{loyaltyId}/earn",
+                                loyaltyId
+                        )
+                                .file(image)
+                )
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.id")
+                        .value(loyaltyId.toString()))
+                .andExpect(jsonPath("$.customerId")
+                        .value(customerId.toString()))
+                .andExpect(jsonPath("$.merchantId")
+                        .value(merchantId.toString()))
+                .andExpect(jsonPath("$.pointsBalance")
+                        .value(112));
+    }
+
+    /**
+     * Vérifie qu'une requête d'attribution de points
+     * sans image retourne une réponse HTTP 400.
+     *
+     * @throws Exception si l'appel HTTP échoue
+     */
+    @Test
+    void shouldRejectEarnPointsRequestWithoutImage()
+            throws Exception {
+
+        UUID loyaltyId = UUID.randomUUID();
+
+        mockMvc.perform(
+                        multipart(
+                                "/api/loyalties/{loyaltyId}/earn",
+                                loyaltyId
+                        )
+                )
+                .andExpect(status().isBadRequest());
     }
 }

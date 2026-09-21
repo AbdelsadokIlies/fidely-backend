@@ -27,7 +27,6 @@ public class Ticket {
     private final BigDecimal amount;
 
     private final String rawOcrText;
-    private final String imageStorageRef;
 
     private TicketStatus status;
     private String rejectionReason;
@@ -47,7 +46,6 @@ public class Ticket {
      * @param ticketTime heure du ticket
      * @param amount montant du ticket
      * @param rawOcrText texte brut extrait par OCR
-     * @param imageStorageRef référence de l'image du ticket stockée
      * @param status statut initial du ticket
      * @param rejectionReason raison du rejet, obligatoire si le ticket est rejeté
      * @param createdAt date de création du ticket
@@ -64,7 +62,6 @@ public class Ticket {
             LocalTime ticketTime,
             BigDecimal amount,
             String rawOcrText,
-            String imageStorageRef,
             TicketStatus status,
             String rejectionReason,
             LocalDateTime createdAt
@@ -131,7 +128,6 @@ public class Ticket {
         this.ticketTime = ticketTime;
         this.amount = amount;
         this.rawOcrText = rawOcrText;
-        this.imageStorageRef = imageStorageRef;
         this.status = status;
         this.rejectionReason = rejectionReason;
         this.createdAt = createdAt;
@@ -247,10 +243,6 @@ public class Ticket {
 
     public String getRawOcrText() {
         return rawOcrText;
-    }
-
-    public String getImageStorageRef() {
-        return imageStorageRef;
     }
 
     public TicketStatus getStatus() {

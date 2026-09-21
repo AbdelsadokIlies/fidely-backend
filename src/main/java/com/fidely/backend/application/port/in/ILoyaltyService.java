@@ -29,11 +29,22 @@ public interface ILoyaltyService {
 
     List<Loyalty> getLoyaltiesByMerchant(UUID merchantId);
 
-    void addPoints(UUID loyaltyId, int points);
-
-    void removePoints(UUID loyaltyId, int points);
-
-    void addPointsFromTicket(UUID ticketId);
+    /**
+     * Traite une image de ticket de caisse et attribue automatiquement
+     * les points de fidélité correspondants.
+     *
+     * <p>Le traitement comprend l'analyse OCR du ticket, la création
+     * du ticket, la détermination de la règle de points applicable,
+     * le calcul des points et leur attribution à la fidélité.</p>
+     *
+     * @param loyaltyId identifiant du programme de fidélité
+     * @param image image du ticket de caisse
+     * @return la fidélité mise à jour après attribution des points
+     */
+    Loyalty addPointsFromTicket(
+            UUID loyaltyId,
+            byte[] image
+    );
 
     List<LoyaltyTransaction> getTransactionsByLoyalty(
             UUID loyaltyId
