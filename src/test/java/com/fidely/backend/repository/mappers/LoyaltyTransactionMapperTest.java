@@ -1,7 +1,8 @@
-package com.fidely.backend.repository.mappers.loyalties;
+package com.fidely.backend.repository.mappers;
 
 import com.fidely.backend.domain.models.loyalties.LoyaltyTransaction;
 import com.fidely.backend.repository.entities.loyalties.LoyaltyTransactionEntity;
+import com.fidely.backend.repository.mappers.loyalties.LoyaltyTransactionMapper;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
