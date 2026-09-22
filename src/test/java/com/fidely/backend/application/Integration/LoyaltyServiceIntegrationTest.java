@@ -1,8 +1,10 @@
 package com.fidely.backend.application.Integration;
 
 import com.fidely.backend.application.port.in.ILoyaltyService;
+import com.fidely.backend.application.port.in.ITicketService;
 import com.fidely.backend.application.port.out.IOcrService;
 import com.fidely.backend.domain.models.loyalties.Rewards.RoundingMethod;
+import com.fidely.backend.domain.models.tickets.Ticket;
 import com.fidely.backend.domain.models.tickets.TicketStatus;
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataLoyaltyRepository;
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataLoyaltyTransactionRepository;
@@ -35,21 +37,36 @@ import static org.mockito.Mockito.when;
 
 /**
  * Tests d'intégration du workflow complet d'attribution
- * de points à partir d'une image de ticket.
+ * de points à partir d'un ticket de caisse.
  *
  * <p>Ces tests vérifient l'intégration entre le service de
- * fidélité, le service OCR, les règles de points, les
- * transactions de fidélité et la persistance.</p>
+ * fidélité, le service de ticket, le service OCR, les règles
+ * de points, les transactions de fidélité et la persistance.</p>
  *
  * <p>Le service OCR est mocké afin que les tests contrôlent
  * précisément les données extraites des tickets sans dépendre
  * du comportement du {@code FakeOcrService}.</p>
+ *
+ * <p>Le workflow testé est le suivant :</p>
+ *
+ * <ol>
+ *     <li>Une image est envoyée au service OCR.</li>
+ *     <li>Les données OCR sont transformées en {@link Ticket}.</li>
+ *     <li>Le ticket reste temporaire et n'est pas encore persisté.</li>
+ *     <li>Le ticket est transmis au service de fidélité.</li>
+ *     <li>Les points sont calculés et attribués.</li>
+ *     <li>Le ticket et la transaction sont persistés.</li>
+ *     <li>Le ticket est finalement validé.</li>
+ * </ol>
  */
 @SpringBootTest
 class LoyaltyServiceIntegrationTest {
 
     @Autowired
     private ILoyaltyService loyaltyService;
+
+    @Autowired
+    private ITicketService ticketService;
 
     @MockitoBean
     private IOcrService ocrService;
@@ -118,9 +135,21 @@ class LoyaltyServiceIntegrationTest {
         assertThat(loyaltyBefore.getPointsBalance())
                 .isZero();
 
+        Ticket ticket = ticketService.extractTicketFromOcr(
+                image,
+                merchantId,
+                customerId
+        );
+
+        assertThat(ticket.getStatus())
+                .isEqualTo(TicketStatus.PENDING);
+
+        assertThat(ticketRepository.findById(ticket.getId()))
+                .isEmpty();
+
         loyaltyService.addPointsFromTicket(
                 loyaltyId,
-                image
+                ticket
         );
 
         LoyaltyEntity loyalty =
@@ -148,21 +177,21 @@ class LoyaltyServiceIntegrationTest {
         assertThat(transaction.getTicketId())
                 .isNotNull();
 
-        TicketEntity ticket =
+        TicketEntity ticketEntity =
                 ticketRepository.findById(
                         transaction.getTicketId()
                 ).orElseThrow();
 
-        assertThat(ticket.getMerchantId())
+        assertThat(ticketEntity.getMerchantId())
                 .isEqualTo(merchantId);
 
-        assertThat(ticket.getCustomerId())
+        assertThat(ticketEntity.getCustomerId())
                 .isEqualTo(customerId);
 
-        assertThat(ticket.getAmount())
+        assertThat(ticketEntity.getAmount())
                 .isEqualByComparingTo(ticketAmount);
 
-        assertThat(ticket.getStatus())
+        assertThat(ticketEntity.getStatus())
                 .isEqualTo(TicketStatus.VALIDATED);
     }
 
@@ -195,7 +224,8 @@ class LoyaltyServiceIntegrationTest {
                 new BigDecimal("112.00");
 
         int expectedPointsPerTicket = 112;
-        int expectedTotalPoints = expectedPointsPerTicket * 2;
+        int expectedTotalPoints =
+                expectedPointsPerTicket * 2;
 
         when(ocrService.extractTicketData(image1))
                 .thenReturn(
@@ -232,9 +262,16 @@ class LoyaltyServiceIntegrationTest {
 
         Callable<Boolean> task1 = () -> {
             try {
+                Ticket ticket =
+                        ticketService.extractTicketFromOcr(
+                                image1,
+                                merchantId,
+                                customerId
+                        );
+
                 loyaltyService.addPointsFromTicket(
                         loyaltyId,
-                        image1
+                        ticket
                 );
 
                 return true;
@@ -247,9 +284,16 @@ class LoyaltyServiceIntegrationTest {
 
         Callable<Boolean> task2 = () -> {
             try {
+                Ticket ticket =
+                        ticketService.extractTicketFromOcr(
+                                image2,
+                                merchantId,
+                                customerId
+                        );
+
                 loyaltyService.addPointsFromTicket(
                         loyaltyId,
-                        image2
+                        ticket
                 );
 
                 return true;
@@ -347,13 +391,17 @@ class LoyaltyServiceIntegrationTest {
         UUID merchantId = UUID.randomUUID();
         UUID pointRuleId = UUID.randomUUID();
 
-        byte[] image1 = "fake-image-1".getBytes();
-        byte[] image2 = "fake-image-2".getBytes();
+        byte[] image1 =
+                "fake-image-1".getBytes();
 
-        OcrTicketData ocrData = createOcrTicketData(
-                "TICKET-1",
-                new BigDecimal("112.00")
-        );
+        byte[] image2 =
+                "fake-image-2".getBytes();
+
+        OcrTicketData ocrData =
+                createOcrTicketData(
+                        "TICKET-1",
+                        new BigDecimal("112.00")
+                );
 
         when(ocrService.extractTicketData(image1))
                 .thenReturn(ocrData);
@@ -363,11 +411,13 @@ class LoyaltyServiceIntegrationTest {
 
         insertMerchant(merchantId);
         insertCustomer(customerId);
+
         createLoyalty(
                 loyaltyId,
                 customerId,
                 merchantId
         );
+
         createPointRule(
                 pointRuleId,
                 merchantId
@@ -378,11 +428,20 @@ class LoyaltyServiceIntegrationTest {
 
         Callable<Boolean> task1 = () -> {
             try {
+                Ticket ticket =
+                        ticketService.extractTicketFromOcr(
+                                image1,
+                                merchantId,
+                                customerId
+                        );
+
                 loyaltyService.addPointsFromTicket(
                         loyaltyId,
-                        image1
+                        ticket
                 );
+
                 return true;
+
             } catch (Exception exception) {
                 return false;
             }
@@ -390,19 +449,29 @@ class LoyaltyServiceIntegrationTest {
 
         Callable<Boolean> task2 = () -> {
             try {
+                Ticket ticket =
+                        ticketService.extractTicketFromOcr(
+                                image2,
+                                merchantId,
+                                customerId
+                        );
+
                 loyaltyService.addPointsFromTicket(
                         loyaltyId,
-                        image2
+                        ticket
                 );
+
                 return true;
+
             } catch (Exception exception) {
                 return false;
             }
         };
 
-        List<Future<Boolean>> futures = executorService.invokeAll(
-                List.of(task1, task2)
-        );
+        List<Future<Boolean>> futures =
+                executorService.invokeAll(
+                        List.of(task1, task2)
+                );
 
         executorService.shutdown();
 
@@ -433,7 +502,8 @@ class LoyaltyServiceIntegrationTest {
         assertThat(tickets)
                 .hasSize(1);
 
-        TicketEntity ticket = tickets.get(0);
+        TicketEntity ticket =
+                tickets.get(0);
 
         assertThat(ticket.getTicketNumber())
                 .isEqualTo("TICKET-1");

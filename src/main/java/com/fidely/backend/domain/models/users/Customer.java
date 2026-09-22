@@ -47,9 +47,9 @@ public class Customer extends User {
     ) {
         super(id,
                 email,
-                passwordHash,
                 firstName,
                 lastName,
+                passwordHash,
                 emailVerified,
                 active,
                 createdAt,

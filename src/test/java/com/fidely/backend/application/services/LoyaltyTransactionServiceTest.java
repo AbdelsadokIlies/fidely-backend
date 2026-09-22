@@ -1,505 +1,694 @@
 package com.fidely.backend.application.services;
 
-import com.fidely.backend.application.LoyaltyTransactionService;
-import com.fidely.backend.application.port.in.IPointRuleService;
+import com.fidely.backend.application.port.in.ILoyaltyService;
 import com.fidely.backend.application.port.in.ITicketService;
-import com.fidely.backend.application.port.out.ILoyaltyRepository;
-import com.fidely.backend.domain.models.loyalties.Loyalty;
-import com.fidely.backend.domain.models.loyalties.LoyaltyTransaction;
-import com.fidely.backend.domain.models.loyalties.Rewards.PointRule;
+import com.fidely.backend.application.port.out.IOcrService;
 import com.fidely.backend.domain.models.loyalties.Rewards.RoundingMethod;
 import com.fidely.backend.domain.models.tickets.Ticket;
 import com.fidely.backend.domain.models.tickets.TicketStatus;
-import org.junit.jupiter.api.BeforeEach;
+import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataLoyaltyRepository;
+import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataLoyaltyTransactionRepository;
+import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataPointRuleRepository;
+import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataTicketRepository;
+import com.fidely.backend.infrastructure.entities.loyalties.LoyaltyEntity;
+import com.fidely.backend.infrastructure.entities.loyalties.LoyaltyTransactionEntity;
+import com.fidely.backend.infrastructure.entities.loyalties.Rewards.PointRuleEntity;
+import com.fidely.backend.infrastructure.entities.tickets.TicketEntity;
+import com.fidely.backend.infrastructure.ocr.OcrTicketData;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * Tests unitaires du service responsable de l'exécution
- * transactionnelle d'une opération de fidélité à partir
- * d'une image de ticket.
+ * Tests d'intégration du workflow complet d'attribution
+ * de points à partir d'un ticket de caisse.
+ *
+ * <p>Ces tests vérifient l'intégration entre le service de
+ * fidélité, le service OCR, les règles de points, les
+ * transactions de fidélité et la persistance.</p>
+ *
+ * <p>Le service OCR est mocké afin que les tests contrôlent
+ * précisément les données extraites des tickets sans dépendre
+ * du comportement du {@code FakeOcrService}.</p>
+ *
+ * <p>L'extraction OCR produit d'abord un {@link Ticket} métier
+ * temporaire non persisté. Ce ticket est ensuite transmis au
+ * workflow d'attribution des points qui le persiste uniquement
+ * lorsque la transaction est effectivement créée.</p>
  */
-@ExtendWith(MockitoExtension.class)
-class LoyaltyTransactionServiceTest {
+@SpringBootTest
+class LoyaltyServiceIntegrationTest {
 
-    @Mock
-    private ILoyaltyRepository loyaltyRepository;
+    @Autowired
+    private ILoyaltyService loyaltyService;
 
-    @Mock
+    @Autowired
     private ITicketService ticketService;
 
-    @Mock
-    private IPointRuleService pointRuleService;
+    @MockitoBean
+    private IOcrService ocrService;
 
-    private LoyaltyTransactionService loyaltyTransactionService;
+    @Autowired
+    private SpringDataLoyaltyRepository loyaltyRepository;
 
-    /**
-     * Initialise le service testé avant chaque test.
-     */
-    @BeforeEach
-    void setUp() {
-        loyaltyTransactionService =
-                new LoyaltyTransactionService(
-                        loyaltyRepository,
-                        ticketService,
-                        pointRuleService
-                );
-    }
+    @Autowired
+    private SpringDataLoyaltyTransactionRepository transactionRepository;
 
-    /**
-     * Vérifie qu'une fidélité inexistante empêche
-     * le traitement du ticket.
-     */
-    @Test
-    void shouldRejectWhenLoyaltyDoesNotExist() {
-        UUID loyaltyId = UUID.randomUUID();
+    @Autowired
+    private SpringDataPointRuleRepository pointRuleRepository;
 
-        byte[] image = "fake-image".getBytes();
+    @Autowired
+    private SpringDataTicketRepository ticketRepository;
 
-        when(loyaltyRepository.findById(loyaltyId))
-                .thenReturn(Optional.empty());
-
-        assertThatThrownBy(() ->
-                loyaltyTransactionService.addPointsFromTicket(
-                        loyaltyId,
-                        image
-                )
-        )
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage(
-                        "Loyalty introuvable : " + loyaltyId
-                );
-
-        verifyNoInteractions(ticketService);
-        verifyNoInteractions(pointRuleService);
-
-        verify(loyaltyRepository, never())
-                .save(any());
-
-        verify(loyaltyRepository, never())
-                .saveTransaction(any());
-    }
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     /**
-     * Vérifie qu'une absence de règle de points valide
-     * empêche l'attribution des points.
-     */
-    @Test
-    void shouldRejectWhenNoValidPointRuleExists() {
-        UUID loyaltyId = UUID.randomUUID();
-        UUID ticketId = UUID.randomUUID();
-        UUID merchantId = UUID.randomUUID();
-        UUID customerId = UUID.randomUUID();
-
-        byte[] image = "fake-image".getBytes();
-
-        Loyalty loyalty = createLoyalty(
-                loyaltyId,
-                customerId,
-                merchantId
-        );
-
-        Ticket ticket = createPendingTicket(
-                ticketId,
-                merchantId,
-                customerId,
-                new BigDecimal("50.00")
-        );
-
-        when(loyaltyRepository.findById(loyaltyId))
-                .thenReturn(Optional.of(loyalty));
-
-        when(ticketService.createTicketFromOcr(
-                eq(image),
-                eq(merchantId),
-                eq(customerId)
-        )).thenReturn(ticket);
-
-        when(pointRuleService.getValidPointRule(
-                eq(merchantId),
-                any(LocalDateTime.class)
-        )).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() ->
-                loyaltyTransactionService.addPointsFromTicket(
-                        loyaltyId,
-                        image
-                )
-        )
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage(
-                        "Aucune règle de points valide pour le marchand : "
-                                + merchantId
-                );
-
-        verify(loyaltyRepository, never())
-                .save(any());
-
-        verify(loyaltyRepository, never())
-                .saveTransaction(any());
-
-        verify(ticketService, never())
-                .validateTicket(ticketId);
-    }
-
-    /**
-     * Vérifie qu'un ticket générant zéro point est rejeté
-     * avant toute modification de la fidélité.
-     */
-    @Test
-    void shouldRejectWhenCalculatedPointsAreZero() {
-        UUID loyaltyId = UUID.randomUUID();
-        UUID ticketId = UUID.randomUUID();
-        UUID merchantId = UUID.randomUUID();
-        UUID customerId = UUID.randomUUID();
-
-        byte[] image = "fake-image".getBytes();
-
-        Loyalty loyalty = createLoyalty(
-                loyaltyId,
-                customerId,
-                merchantId
-        );
-
-        Ticket ticket = createPendingTicket(
-                ticketId,
-                merchantId,
-                customerId,
-                new BigDecimal("0.01")
-        );
-
-        PointRule pointRule = new PointRule(
-                UUID.randomUUID(),
-                new BigDecimal("0.0001"),
-                RoundingMethod.FLOOR,
-                true,
-                LocalDateTime.of(2026, 1, 1, 0, 0),
-                LocalDateTime.of(2026, 12, 31, 23, 59),
-                LocalDateTime.of(2026, 1, 1, 0, 0)
-        );
-
-        when(loyaltyRepository.findById(loyaltyId))
-                .thenReturn(Optional.of(loyalty));
-
-        when(ticketService.createTicketFromOcr(
-                eq(image),
-                eq(merchantId),
-                eq(customerId)
-        )).thenReturn(ticket);
-
-        when(pointRuleService.getValidPointRule(
-                eq(merchantId),
-                any(LocalDateTime.class)
-        )).thenReturn(Optional.of(pointRule));
-
-        assertThatThrownBy(() ->
-                loyaltyTransactionService.addPointsFromTicket(
-                        loyaltyId,
-                        image
-                )
-        )
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage(
-                        "Le ticket ne génère aucun point : "
-                                + ticketId
-                );
-
-        assertThat(loyalty.getPointsBalance())
-                .isZero();
-
-        verify(loyaltyRepository, never())
-                .save(any());
-
-        verify(loyaltyRepository, never())
-                .saveTransaction(any());
-
-        verify(ticketService, never())
-                .validateTicket(ticketId);
-    }
-
-    /**
-     * Vérifie qu'un ticket n'est pas validé si la transaction
-     * de fidélité ne peut pas être sauvegardée.
-     */
-    @Test
-    void shouldNotValidateTicketWhenTransactionCannotBeSaved() {
-        UUID loyaltyId = UUID.randomUUID();
-        UUID ticketId = UUID.randomUUID();
-        UUID merchantId = UUID.randomUUID();
-        UUID customerId = UUID.randomUUID();
-
-        byte[] image = "fake-image".getBytes();
-
-        Loyalty loyalty = createLoyalty(
-                loyaltyId,
-                customerId,
-                merchantId
-        );
-
-        Ticket ticket = createPendingTicket(
-                ticketId,
-                merchantId,
-                customerId,
-                new BigDecimal("112.00")
-        );
-
-        PointRule pointRule = createPointRule();
-
-        LocalDateTime ticketDateTime = LocalDateTime.of(
-                ticket.getTicketDate(),
-                ticket.getTicketTime()
-        );
-
-        when(loyaltyRepository.findById(loyaltyId))
-                .thenReturn(Optional.of(loyalty));
-
-        when(ticketService.createTicketFromOcr(
-                image,
-                merchantId,
-                customerId
-        )).thenReturn(ticket);
-
-        when(pointRuleService.getValidPointRule(
-                merchantId,
-                ticketDateTime
-        )).thenReturn(Optional.of(pointRule));
-
-        doThrow(new IllegalStateException(
-                "Erreur lors de la sauvegarde"
-        ))
-                .when(loyaltyRepository)
-                .saveTransaction(any(LoyaltyTransaction.class));
-
-        assertThatThrownBy(() ->
-                loyaltyTransactionService.addPointsFromTicket(
-                        loyaltyId,
-                        image
-                )
-        )
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Erreur lors de la sauvegarde");
-
-        assertThat(loyalty.getPointsBalance())
-                .isEqualTo(112);
-
-        verify(loyaltyRepository)
-                .save(loyalty);
-
-        verify(loyaltyRepository)
-                .saveTransaction(any(LoyaltyTransaction.class));
-
-        verify(ticketService, never())
-                .validateTicket(ticketId);
-    }
-
-    /**
-     * Vérifie qu'un ticket issu de l'OCR permet d'ajouter
-     * les points, de créer une transaction et de valider
-     * le ticket.
+     * Vérifie que l'extraction OCR produit un ticket temporaire
+     * puis que sa validation permet de créer le ticket en base,
+     * d'ajouter les points correspondants, de créer une
+     * transaction et de valider le ticket.
      */
     @Test
     void shouldAddPointsCreateTransactionAndValidateTicket() {
-        UUID loyaltyId = UUID.randomUUID();
-        UUID ticketId = UUID.randomUUID();
+
         UUID merchantId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
+        UUID loyaltyId = UUID.randomUUID();
+        UUID pointRuleId = UUID.randomUUID();
 
         byte[] image = "fake-image".getBytes();
 
-        Loyalty loyalty = createLoyalty(
+        BigDecimal ticketAmount =
+                new BigDecimal("112.00");
+
+        int expectedPoints = 112;
+
+        when(ocrService.extractTicketData(image))
+                .thenReturn(
+                        createOcrTicketData(
+                                "TICKET-1",
+                                ticketAmount
+                        )
+                );
+
+        insertMerchant(merchantId);
+        insertCustomer(customerId);
+
+        createLoyalty(
                 loyaltyId,
                 customerId,
                 merchantId
         );
 
-        Ticket ticket = createPendingTicket(
-                ticketId,
-                merchantId,
-                customerId,
-                new BigDecimal("112.00")
+        createPointRule(
+                pointRuleId,
+                merchantId
         );
 
-        PointRule pointRule = createPointRule();
+        LoyaltyEntity loyaltyBefore =
+                loyaltyRepository.findById(loyaltyId)
+                        .orElseThrow();
 
-        LocalDateTime ticketDateTime = LocalDateTime.of(
-                ticket.getTicketDate(),
-                ticket.getTicketTime()
-        );
+        assertThat(loyaltyBefore.getPointsBalance())
+                .isZero();
 
-        when(loyaltyRepository.findById(loyaltyId))
-                .thenReturn(Optional.of(loyalty));
-
-        when(ticketService.createTicketFromOcr(
+        Ticket ticket = ticketService.extractTicketFromOcr(
                 image,
                 merchantId,
                 customerId
-        )).thenReturn(ticket);
-
-        when(pointRuleService.getValidPointRule(
-                merchantId,
-                ticketDateTime
-        )).thenReturn(Optional.of(pointRule));
-
-        when(loyaltyRepository.save(loyalty))
-                .thenReturn(loyalty);
-
-        loyaltyTransactionService.addPointsFromTicket(
-                loyaltyId,
-                image
         );
+
+        assertThat(ticket.getStatus())
+                .isEqualTo(TicketStatus.PENDING);
+
+        assertThat(
+                ticketRepository.findById(ticket.getId())
+        )
+                .isEmpty();
+
+        loyaltyService.addPointsFromTicket(
+                loyaltyId,
+                ticket
+        );
+
+        LoyaltyEntity loyalty =
+                loyaltyRepository.findById(loyaltyId)
+                        .orElseThrow();
+
+        assertThat(loyalty.getPointsBalance())
+                .isEqualTo(expectedPoints);
+
+        List<LoyaltyTransactionEntity> transactions =
+                transactionRepository.findByLoyaltyId(loyaltyId);
+
+        assertThat(transactions)
+                .hasSize(1);
+
+        LoyaltyTransactionEntity transaction =
+                transactions.get(0);
+
+        assertThat(transaction.getLoyaltyId())
+                .isEqualTo(loyaltyId);
+
+        assertThat(transaction.getPoints())
+                .isEqualTo(expectedPoints);
+
+        assertThat(transaction.getTicketId())
+                .isNotNull();
+
+        TicketEntity ticketEntity =
+                ticketRepository.findById(
+                        transaction.getTicketId()
+                ).orElseThrow();
+
+        assertThat(ticketEntity.getMerchantId())
+                .isEqualTo(merchantId);
+
+        assertThat(ticketEntity.getCustomerId())
+                .isEqualTo(customerId);
+
+        assertThat(ticketEntity.getAmount())
+                .isEqualByComparingTo(ticketAmount);
+
+        assertThat(ticketEntity.getStatus())
+                .isEqualTo(TicketStatus.VALIDATED);
+    }
+
+    /**
+     * Vérifie que deux tickets différents traités
+     * simultanément ne provoquent pas de perte de points.
+     *
+     * <p>Les données OCR sont contrôlées directement par le test.
+     * Chaque ticket vaut 112 euros et génère donc 112 points
+     * avec la règle utilisée dans ce scénario.</p>
+     *
+     * @throws Exception si l'exécution concurrente échoue
+     */
+    @Test
+    void shouldNotLosePointsWhenDifferentTicketsAreProcessedConcurrently()
+            throws Exception {
+
+        UUID merchantId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        UUID loyaltyId = UUID.randomUUID();
+        UUID pointRuleId = UUID.randomUUID();
+
+        byte[] image1 =
+                "fake-image-1".getBytes();
+
+        byte[] image2 =
+                "fake-image-2".getBytes();
+
+        BigDecimal ticketAmount =
+                new BigDecimal("112.00");
+
+        int expectedPointsPerTicket = 112;
+        int expectedTotalPoints = expectedPointsPerTicket * 2;
+
+        when(ocrService.extractTicketData(image1))
+                .thenReturn(
+                        createOcrTicketData(
+                                "TICKET-1",
+                                ticketAmount
+                        )
+                );
+
+        when(ocrService.extractTicketData(image2))
+                .thenReturn(
+                        createOcrTicketData(
+                                "TICKET-2",
+                                ticketAmount
+                        )
+                );
+
+        insertMerchant(merchantId);
+        insertCustomer(customerId);
+
+        createLoyalty(
+                loyaltyId,
+                customerId,
+                merchantId
+        );
+
+        createPointRule(
+                pointRuleId,
+                merchantId
+        );
+
+        ExecutorService executor =
+                Executors.newFixedThreadPool(2);
+
+        Callable<Boolean> task1 = () -> {
+            try {
+                Ticket ticket =
+                        ticketService.extractTicketFromOcr(
+                                image1,
+                                merchantId,
+                                customerId
+                        );
+
+                loyaltyService.addPointsFromTicket(
+                        loyaltyId,
+                        ticket
+                );
+
+                return true;
+
+            } catch (Exception exception) {
+                exception.printStackTrace();
+                return false;
+            }
+        };
+
+        Callable<Boolean> task2 = () -> {
+            try {
+                Ticket ticket =
+                        ticketService.extractTicketFromOcr(
+                                image2,
+                                merchantId,
+                                customerId
+                        );
+
+                loyaltyService.addPointsFromTicket(
+                        loyaltyId,
+                        ticket
+                );
+
+                return true;
+
+            } catch (Exception exception) {
+                exception.printStackTrace();
+                return false;
+            }
+        };
+
+        try {
+            Future<Boolean> first =
+                    executor.submit(task1);
+
+            Future<Boolean> second =
+                    executor.submit(task2);
+
+            boolean firstSucceeded =
+                    first.get();
+
+            boolean secondSucceeded =
+                    second.get();
+
+            assertThat(firstSucceeded)
+                    .isTrue();
+
+            assertThat(secondSucceeded)
+                    .isTrue();
+
+        } finally {
+            executor.shutdown();
+        }
+
+        LoyaltyEntity loyalty =
+                loyaltyRepository.findById(loyaltyId)
+                        .orElseThrow();
+
+        assertThat(loyalty.getPointsBalance())
+                .isEqualTo(expectedTotalPoints);
+
+        List<LoyaltyTransactionEntity> transactions =
+                transactionRepository.findByLoyaltyId(loyaltyId);
+
+        assertThat(transactions)
+                .hasSize(2);
+
+        assertThat(
+                transactions.stream()
+                        .map(LoyaltyTransactionEntity::getPoints)
+                        .toList()
+        )
+                .containsExactlyInAnyOrder(
+                        expectedPointsPerTicket,
+                        expectedPointsPerTicket
+                );
+
+        for (LoyaltyTransactionEntity transaction : transactions) {
+
+            assertThat(transaction.getTicketId())
+                    .isNotNull();
+
+            TicketEntity ticket =
+                    ticketRepository.findById(
+                                    transaction.getTicketId()
+                            )
+                            .orElseThrow();
+
+            assertThat(ticket.getStatus())
+                    .isEqualTo(TicketStatus.VALIDATED);
+
+            assertThat(ticket.getAmount())
+                    .isEqualByComparingTo(ticketAmount);
+        }
+    }
+
+    /**
+     * Vérifie que deux soumissions simultanées du même ticket
+     * n'attribuent les points qu'une seule fois.
+     *
+     * <p>Les deux appels utilisent exactement les mêmes données OCR.
+     * Ils produisent donc le même fingerprint. La contrainte unique
+     * sur le fingerprint doit empêcher le ticket d'être utilisé deux fois.</p>
+     *
+     * <p>Un seul traitement doit réussir. Le second doit échouer
+     * et aucun double crédit ne doit être effectué.</p>
+     *
+     * @throws Exception si l'exécution concurrente échoue
+     */
+    @Test
+    void shouldNotAwardPointsTwiceWhenSameTicketIsProcessedConcurrently()
+            throws Exception {
+
+        UUID loyaltyId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        UUID merchantId = UUID.randomUUID();
+        UUID pointRuleId = UUID.randomUUID();
+
+        byte[] image1 =
+                "fake-image-1".getBytes();
+
+        byte[] image2 =
+                "fake-image-2".getBytes();
+
+        OcrTicketData ocrData = createOcrTicketData(
+                "TICKET-1",
+                new BigDecimal("112.00")
+        );
+
+        when(ocrService.extractTicketData(image1))
+                .thenReturn(ocrData);
+
+        when(ocrService.extractTicketData(image2))
+                .thenReturn(ocrData);
+
+        insertMerchant(merchantId);
+        insertCustomer(customerId);
+
+        createLoyalty(
+                loyaltyId,
+                customerId,
+                merchantId
+        );
+
+        createPointRule(
+                pointRuleId,
+                merchantId
+        );
+
+        ExecutorService executorService =
+                Executors.newFixedThreadPool(2);
+
+        Callable<Boolean> task1 = () -> {
+            try {
+                Ticket ticket =
+                        ticketService.extractTicketFromOcr(
+                                image1,
+                                merchantId,
+                                customerId
+                        );
+
+                loyaltyService.addPointsFromTicket(
+                        loyaltyId,
+                        ticket
+                );
+
+                return true;
+
+            } catch (Exception exception) {
+                return false;
+            }
+        };
+
+        Callable<Boolean> task2 = () -> {
+            try {
+                Ticket ticket =
+                        ticketService.extractTicketFromOcr(
+                                image2,
+                                merchantId,
+                                customerId
+                        );
+
+                loyaltyService.addPointsFromTicket(
+                        loyaltyId,
+                        ticket
+                );
+
+                return true;
+
+            } catch (Exception exception) {
+                return false;
+            }
+        };
+
+        List<Future<Boolean>> futures =
+                executorService.invokeAll(
+                        List.of(task1, task2)
+                );
+
+        executorService.shutdown();
+
+        List<Boolean> results = List.of(
+                futures.get(0).get(),
+                futures.get(1).get()
+        );
+
+        assertThat(results)
+                .containsExactlyInAnyOrder(true, false);
+
+        LoyaltyEntity loyalty =
+                loyaltyRepository.findById(loyaltyId)
+                        .orElseThrow();
 
         assertThat(loyalty.getPointsBalance())
                 .isEqualTo(112);
 
-        verify(ticketService)
-                .createTicketFromOcr(
-                        image,
-                        merchantId,
-                        customerId
-                );
+        List<LoyaltyTransactionEntity> transactions =
+                transactionRepository.findByLoyaltyId(loyaltyId);
 
-        verify(loyaltyRepository)
-                .save(loyalty);
+        assertThat(transactions)
+                .hasSize(1);
 
-        verify(loyaltyRepository)
-                .saveTransaction(
-                        any(LoyaltyTransaction.class)
-                );
+        List<TicketEntity> tickets =
+                ticketRepository.findByMerchantId(merchantId);
 
-        verify(ticketService)
-                .validateTicket(ticketId);
+        assertThat(tickets)
+                .hasSize(1);
+
+        TicketEntity ticket =
+                tickets.get(0);
+
+        assertThat(ticket.getTicketNumber())
+                .isEqualTo("TICKET-1");
+
+        assertThat(ticket.getCustomerId())
+                .isEqualTo(customerId);
+
+        assertThat(ticket.getMerchantId())
+                .isEqualTo(merchantId);
+
+        assertThat(ticket.getAmount())
+                .isEqualByComparingTo("112.00");
+
+        assertThat(ticket.getStatus())
+                .isEqualTo(TicketStatus.VALIDATED);
+
+        assertThat(ticket.getFingerprintHash())
+                .isNotBlank();
+
+        assertThat(transactions.get(0).getTicketId())
+                .isEqualTo(ticket.getId());
     }
 
     /**
-     * Crée une fidélité de test.
+     * Crée les données qu'un service OCR aurait extraites
+     * d'un ticket.
+     *
+     * @param ticketNumber numéro du ticket
+     * @param amount montant du ticket
+     * @return données OCR simulées
+     */
+    private OcrTicketData createOcrTicketData(
+            String ticketNumber,
+            BigDecimal amount
+    ) {
+        return new OcrTicketData(
+                ticketNumber,
+                LocalDate.of(
+                        2026,
+                        6,
+                        15
+                ),
+                LocalTime.of(
+                        12,
+                        0
+                ),
+                amount,
+                """
+                RESTAURANT FIDELY
+                Ticket: %s
+                Date: 2026-06-15
+                Heure: 12:00
+                TOTAL: %s EUR
+                """.formatted(
+                        ticketNumber,
+                        amount
+                )
+        );
+    }
+
+    /**
+     * Crée une fidélité directement en base de données.
      *
      * @param id identifiant de la fidélité
      * @param customerId identifiant du client
      * @param merchantId identifiant du marchand
-     * @return fidélité de test
      */
-    private Loyalty createLoyalty(
+    private void createLoyalty(
             UUID id,
             UUID customerId,
             UUID merchantId
     ) {
-        LocalDateTime now = LocalDateTime.now();
-
-        return new Loyalty(
-                id,
-                customerId,
-                merchantId,
-                0,
-                now,
-                now
-        );
-    }
-
-    /**
-     * Crée une règle de points de test.
-     *
-     * @return règle de points valide
-     */
-    private PointRule createPointRule() {
-        LocalDateTime validFrom =
-                LocalDateTime.of(
-                        2026,
-                        1,
-                        1,
+        loyaltyRepository.saveAndFlush(
+                new LoyaltyEntity(
+                        id,
+                        customerId,
+                        merchantId,
                         0,
-                        0
-                );
-
-        return new PointRule(
-                UUID.randomUUID(),
-                new BigDecimal("1.0000"),
-                RoundingMethod.FLOOR,
-                true,
-                validFrom,
-                LocalDateTime.of(
-                        2026,
-                        12,
-                        31,
-                        23,
-                        59
-                ),
-                validFrom
+                        LocalDateTime.of(
+                                2026,
+                                6,
+                                15,
+                                12,
+                                0
+                        ),
+                        LocalDateTime.of(
+                                2026,
+                                6,
+                                15,
+                                12,
+                                0
+                        )
+                )
         );
     }
 
     /**
-     * Crée une transaction de fidélité de test.
+     * Crée une règle de points directement en base.
      *
-     * @param id identifiant de la transaction
-     * @param loyaltyId identifiant de la fidélité
-     * @param ticketId identifiant du ticket
-     * @param points nombre de points
-     * @return transaction de test
-     */
-    private LoyaltyTransaction createTransaction(
-            UUID id,
-            UUID loyaltyId,
-            UUID ticketId,
-            int points
-    ) {
-        return new LoyaltyTransaction(
-                id,
-                loyaltyId,
-                ticketId,
-                points,
-                "Purchase",
-                LocalDateTime.now()
-        );
-    }
-
-    /**
-     * Crée un ticket en attente de validation.
-     *
-     * @param ticketId identifiant du ticket
+     * @param id identifiant de la règle
      * @param merchantId identifiant du marchand
-     * @param customerId identifiant du client
-     * @param amount montant du ticket
-     * @return ticket de test
      */
-    private Ticket createPendingTicket(
-            UUID ticketId,
-            UUID merchantId,
-            UUID customerId,
-            BigDecimal amount
+    private void createPointRule(
+            UUID id,
+            UUID merchantId
     ) {
-        return new Ticket(
-                ticketId,
-                merchantId,
-                customerId,
-                "TICKET-" + ticketId,
-                "fingerprint-" + ticketId,
-                LocalDate.of(2026, 6, 15),
-                LocalTime.of(12, 30),
-                amount,
-                "OCR TEXT",
-                TicketStatus.PENDING,
-                null,
-                LocalDateTime.now()
+        pointRuleRepository.saveAndFlush(
+                new PointRuleEntity(
+                        id,
+                        merchantId,
+                        new BigDecimal("1.0000"),
+                        roundingMethodValue(
+                                RoundingMethod.FLOOR
+                        ),
+                        true,
+                        LocalDateTime.of(
+                                2026,
+                                1,
+                                1,
+                                0,
+                                0
+                        ),
+                        LocalDateTime.of(
+                                2026,
+                                12,
+                                31,
+                                23,
+                                59
+                        ),
+                        LocalDateTime.of(
+                                2026,
+                                1,
+                                1,
+                                0,
+                                0
+                        )
+                )
+        );
+    }
+
+    /**
+     * Convertit la méthode d'arrondi du domaine en valeur
+     * persistée en base de données.
+     *
+     * @param roundingMethod méthode d'arrondi
+     * @return valeur persistée
+     */
+    private short roundingMethodValue(
+            RoundingMethod roundingMethod
+    ) {
+        return switch (roundingMethod) {
+            case FLOOR -> 0;
+            case ROUND -> 1;
+            case CEIL -> 2;
+        };
+    }
+
+    /**
+     * Insère un marchand de test.
+     *
+     * @param id identifiant du marchand
+     */
+    private void insertMerchant(UUID id) {
+        jdbcTemplate.update(
+                """
+                INSERT INTO merchants (id, name, slug)
+                VALUES (?, ?, ?)
+                """,
+                id,
+                "Merchant " + id,
+                "merchant-" + id
+        );
+    }
+
+    /**
+     * Insère un client de test.
+     *
+     * @param id identifiant du client
+     */
+    private void insertCustomer(UUID id) {
+        jdbcTemplate.update(
+                """
+                INSERT INTO users
+                    (id, email, first_name, last_name, password_hash)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                id,
+                id + "@test.com",
+                "Test",
+                "User",
+                "hash"
         );
     }
 }

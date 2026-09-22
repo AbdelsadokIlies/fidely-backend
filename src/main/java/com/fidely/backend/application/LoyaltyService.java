@@ -4,6 +4,7 @@ import com.fidely.backend.application.port.in.ILoyaltyService;
 import com.fidely.backend.application.port.out.ILoyaltyRepository;
 import com.fidely.backend.domain.models.loyalties.Loyalty;
 import com.fidely.backend.domain.models.loyalties.LoyaltyTransaction;
+import com.fidely.backend.domain.models.tickets.Ticket;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
@@ -129,23 +130,27 @@ public class LoyaltyService implements ILoyaltyService {
      * Traite un ticket de caisse afin d'attribuer automatiquement
      * les points de fidélité correspondants.
      *
+     * <p>Le ticket doit avoir été préalablement construit et validé
+     * par le flux applicatif. Cette méthode ne réalise pas l'extraction
+     * OCR.</p>
+     *
      * <p>En cas de conflit d'optimistic locking, toute la tentative
      * transactionnelle est rejouée depuis le début.</p>
      *
      * @param loyaltyId identifiant du programme de fidélité
-     * @param image image du ticket de caisse
+     * @param ticket ticket de caisse à traiter
      * @return le programme de fidélité mis à jour
      */
     @Override
     public Loyalty addPointsFromTicket(
             UUID loyaltyId,
-            byte[] image
+            Ticket ticket
     ) {
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
                 return loyaltyTransactionService.addPointsFromTicket(
                         loyaltyId,
-                        image
+                        ticket
                 );
             } catch (OptimisticLockingFailureException exception) {
                 if (attempt == MAX_RETRIES) {

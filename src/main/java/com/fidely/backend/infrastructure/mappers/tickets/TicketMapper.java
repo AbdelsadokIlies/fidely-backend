@@ -13,6 +13,9 @@ public class TicketMapper {
     /**
      * Convertit une entité JPA en modèle de domaine.
      *
+     * <p>L'empreinte du ticket est recalculée automatiquement
+     * par le modèle de domaine à partir des données métier.</p>
+     *
      * @param entity entité JPA à convertir
      * @return modèle de domaine correspondant
      */
@@ -22,7 +25,6 @@ public class TicketMapper {
                 entity.getMerchantId(),
                 entity.getCustomerId(),
                 entity.getTicketNumber(),
-                entity.getFingerprintHash(),
                 entity.getTicketDate(),
                 entity.getTicketTime(),
                 entity.getAmount(),
@@ -35,6 +37,9 @@ public class TicketMapper {
 
     /**
      * Convertit un modèle de domaine en entité JPA.
+     *
+     * <p>L'empreinte calculée par le domaine est conservée
+     * dans l'entité afin d'être persistée en base de données.</p>
      *
      * @param ticket modèle de domaine à convertir
      * @return entité JPA correspondante

@@ -14,18 +14,16 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * Service responsable de l'exécution transactionnelle
- * d'une opération complète d'attribution de points.
+ * Service responsable de la gestion des transactions de fidélité.
  *
- * <p>Ce service orchestre les différentes opérations nécessaires
- * au traitement d'un ticket : création du ticket à partir de l'image,
- * vérification de son utilisation, détermination de la règle de points,
- * calcul des points, mise à jour de la fidélité, création de la
- * transaction de fidélité et validation du ticket.</p>
+ * <p>Ce service orchestre l'ajout de points à partir d'un ticket.
+ * Il vérifie l'existence d'une règle de points applicable, calcule les
+ * points gagnés, met à jour le solde de fidélité et crée la transaction
+ * correspondante.</p>
  *
- * <p>L'ensemble de l'opération est exécuté dans une transaction
- * afin de garantir qu'une attribution partiellement effectuée
- * ne puisse pas être persistée.</p>
+ * <p>Le ticket est fourni au service après l'étape d'extraction OCR.
+ * Il n'est persisté qu'au moment de la création effective de la
+ * transaction.</p>
  */
 @Service
 public class LoyaltyTransactionService {
@@ -35,10 +33,9 @@ public class LoyaltyTransactionService {
     private final IPointRuleService pointRuleService;
 
     /**
-     * Construit le service d'exécution transactionnelle
-     * des opérations de fidélité.
+     * Construit le service de transactions de fidélité.
      *
-     * @param loyaltyRepository repository des programmes de fidélité
+     * @param loyaltyRepository repository des fidélités et transactions
      * @param ticketService service de gestion des tickets
      * @param pointRuleService service de gestion des règles de points
      */
@@ -53,84 +50,92 @@ public class LoyaltyTransactionService {
     }
 
     /**
-     * Exécute une tentative complète d'attribution des points
-     * à partir d'une image de ticket.
+     * Ajoute les points correspondant à un ticket.
      *
-     * <p>Le ticket est d'abord analysé par le service OCR via
-     * le {@link ITicketService}. Une fois créé, les données du ticket
-     * permettent de déterminer la règle de points applicable et
-     * de calculer le nombre de points à attribuer.</p>
+     * <p>Le ticket fourni doit être un ticket métier temporaire issu de
+     * l'étape d'extraction OCR. Cette méthode vérifie qu'il n'a pas déjà
+     * été utilisé, vérifie la règle de points applicable, calcule les
+     * points, met à jour la fidélité, persiste le ticket, crée la
+     * transaction puis valide le ticket.</p>
      *
-     * <p>Si une erreur survient au cours du traitement, l'ensemble
-     * de la transaction est rollbacké.</p>
-     *
-     * @param loyaltyId identifiant du programme de fidélité
-     * @param image image du ticket de caisse
-     * @return le programme de fidélité mis à jour
+     * @param loyaltyId identifiant de la fidélité du client chez le marchand
+     * @param ticket ticket à traiter
+     * @return fidélité mise à jour
+     * @throws IllegalArgumentException si la fidélité est introuvable,
+     * si le ticket n'appartient pas au marchand ou au client
+     * @throws IllegalStateException si le ticket est déjà utilisé,
+     * si aucune règle de points valide n'existe ou si le ticket
+     * ne génère aucun point
      */
     @Transactional
     public Loyalty addPointsFromTicket(
             UUID loyaltyId,
-            byte[] image
+            Ticket ticket
     ) {
         Loyalty loyalty = loyaltyRepository.findById(loyaltyId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Loyalty introuvable : " + loyaltyId
-                        )
-                );
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Loyalty introuvable : " + loyaltyId
+                ));
 
-        Ticket ticket = ticketService.createTicketFromOcr(
-                image,
-                loyalty.getMerchantId(),
-                loyalty.getCustomerId()
-        );
+        if (!loyalty.getMerchantId().equals(ticket.getMerchantId())) {
+            throw new IllegalArgumentException(
+                    "Le ticket n'appartient pas au marchand de la fidélité."
+            );
+        }
+
+        if (!loyalty.getCustomerId().equals(ticket.getCustomerId())) {
+            throw new IllegalArgumentException(
+                    "Le ticket n'appartient pas au client de la fidélité."
+            );
+        }
+
+        if (ticketService.existsByFingerprintHash(
+                ticket.getFingerprintHash()
+        )) {
+            throw new IllegalStateException(
+                    "Ce ticket a déjà été utilisé."
+            );
+        }
 
         LocalDateTime ticketDateTime = LocalDateTime.of(
                 ticket.getTicketDate(),
                 ticket.getTicketTime()
         );
 
-        PointRule pointRule =
-                pointRuleService.getValidPointRule(
-                        ticket.getMerchantId(),
-                        ticketDateTime
-                ).orElseThrow(() ->
-                        new IllegalStateException(
-                                "Aucune règle de points valide pour le marchand : "
-                                        + ticket.getMerchantId()
-                        )
-                );
+        PointRule pointRule = pointRuleService.getValidPointRule(
+                ticket.getMerchantId(),
+                ticketDateTime
+        ).orElseThrow(() -> new IllegalStateException(
+                "Aucune règle de points valide pour le marchand : "
+                        + ticket.getMerchantId()
+        ));
 
-        int points = pointRule.calculatePoints(
-                ticket.getAmount()
-        );
+        int points = pointRule.calculatePoints(ticket.getAmount());
 
         if (points <= 0) {
             throw new IllegalStateException(
-                    "Le ticket ne génère aucun point : "
-                            + ticket.getId()
+                    "Le ticket ne génère aucun point : " + ticket.getId()
             );
         }
 
         loyalty.addPoints(points);
-
         loyaltyRepository.save(loyalty);
 
-        LoyaltyTransaction transaction =
-                new LoyaltyTransaction(
-                        UUID.randomUUID(),
-                        loyalty.getId(),
-                        ticket.getId(),
-                        points,
-                        "Points gagnés sur le ticket "
-                                + ticket.getTicketNumber(),
-                        LocalDateTime.now()
-                );
+        Ticket persistedTicket = ticketService.createTicket(ticket);
+
+        LoyaltyTransaction transaction = new LoyaltyTransaction(
+                UUID.randomUUID(),
+                loyalty.getId(),
+                persistedTicket.getId(),
+                points,
+                "Points gagnés sur le ticket "
+                        + persistedTicket.getTicketNumber(),
+                LocalDateTime.now()
+        );
 
         loyaltyRepository.saveTransaction(transaction);
 
-        ticketService.validateTicket(ticket.getId());
+        ticketService.validateTicket(persistedTicket.getId());
 
         return loyalty;
     }

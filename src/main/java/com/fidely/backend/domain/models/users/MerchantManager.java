@@ -42,9 +42,9 @@ public class MerchantManager extends User {
         super(
                 id,
                 email,
-                passwordHash,
                 firstName,
                 lastName,
+                passwordHash,
                 emailVerified,
                 active,
                 createdAt,

@@ -1,17 +1,24 @@
 package com.fidely.backend.domain.models.tickets;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.HexFormat;
 import java.util.UUID;
 
 /**
-
  * Représente un ticket de caisse associé à un client et à un marchand.
  *
  * <p>Un ticket peut être en attente de validation, validé, rejeté ou identifié
  * comme doublon. Lorsqu'un ticket est rejeté, une raison doit être conservée.</p>
+ *
+ * <p>L'empreinte du ticket est calculée automatiquement à partir du marchand,
+ * du numéro du ticket, de sa date, de son heure et de son montant. Elle permet
+ * d'identifier les tickets déjà traités.</p>
  */
 public class Ticket {
 
@@ -34,14 +41,15 @@ public class Ticket {
     private final LocalDateTime createdAt;
 
     /**
-
      * Crée un nouveau ticket.
+     *
+     * <p>L'empreinte du ticket est générée automatiquement à partir des données
+     * métier permettant d'identifier un ticket de manière déterministe.</p>
      *
      * @param id identifiant du ticket
      * @param merchantId id du marchand associé au ticket
      * @param customerId id du client associé au ticket
      * @param ticketNumber numéro du ticket
-     * @param fingerprintHash empreinte permettant d'identifier les doublons
      * @param ticketDate date du ticket
      * @param ticketTime heure du ticket
      * @param amount montant du ticket
@@ -57,7 +65,6 @@ public class Ticket {
             UUID merchantId,
             UUID customerId,
             String ticketNumber,
-            String fingerprintHash,
             LocalDate ticketDate,
             LocalTime ticketTime,
             BigDecimal amount,
@@ -78,10 +85,6 @@ public class Ticket {
             throw new IllegalArgumentException("Ticket number cannot be null or blank");
         }
 
-        if (fingerprintHash == null || fingerprintHash.isBlank()) {
-            throw new IllegalArgumentException("Fingerprint hash cannot be null or blank");
-        }
-
         if (ticketDate == null) {
             throw new IllegalArgumentException("Ticket date cannot be null");
         }
@@ -95,7 +98,7 @@ public class Ticket {
         }
 
         if (amount.signum() <= 0) {
-            throw new IllegalArgumentException("Amount cannot be negative");
+            throw new IllegalArgumentException("Amount must be greater than zero");
         }
 
         if (status == null) {
@@ -123,10 +126,10 @@ public class Ticket {
         this.merchantId = merchantId;
         this.customerId = customerId;
         this.ticketNumber = ticketNumber;
-        this.fingerprintHash = fingerprintHash;
         this.ticketDate = ticketDate;
         this.ticketTime = ticketTime;
         this.amount = amount;
+        this.fingerprintHash = generateFingerprintHash();
         this.rawOcrText = rawOcrText;
         this.status = status;
         this.rejectionReason = rejectionReason;
@@ -134,7 +137,39 @@ public class Ticket {
     }
 
     /**
+     * Génère l'empreinte unique du ticket.
+     *
+     * <p>L'empreinte est calculée à partir des informations suivantes :
+     * merchantId, ticketNumber, ticketDate, ticketTime et amount.</p>
+     *
+     * @return empreinte SHA-256 du ticket sous forme hexadécimale
+     * @throws IllegalStateException si l'algorithme SHA-256 n'est pas disponible
+     */
+    private String generateFingerprintHash() {
+        String data = String.join(
+                "|",
+                merchantId.toString(),
+                ticketNumber,
+                ticketDate.toString(),
+                ticketTime.toString(),
+                amount.toPlainString()
+        );
 
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+
+            return HexFormat.of().formatHex(
+                    digest.digest(data.getBytes(StandardCharsets.UTF_8))
+            );
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(
+                    "SHA-256 algorithm is not available",
+                    exception
+            );
+        }
+    }
+
+    /**
      * Valide le ticket.
      *
      * <p>Seul un ticket en attente peut être validé. Une éventuelle raison
@@ -154,7 +189,6 @@ public class Ticket {
     }
 
     /**
-
      * Rejette le ticket avec une raison.
      *
      * <p>Seul un ticket en attente peut être rejeté.</p>
@@ -181,7 +215,6 @@ public class Ticket {
     }
 
     /**
-
      * Marque le ticket comme doublon.
      *
      * <p>Seul un ticket en attente peut être marqué comme doublon.</p>
@@ -200,7 +233,6 @@ public class Ticket {
     }
 
     /**
-
      * Vérifie si le ticket a été validé.
      *
      * @return true si le ticket est validé, sinon false

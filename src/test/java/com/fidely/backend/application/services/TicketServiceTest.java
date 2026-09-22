@@ -23,7 +23,11 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Tests unitaires du service de gestion des tickets.
@@ -71,7 +75,6 @@ class TicketServiceTest {
                 merchantId,
                 customerId,
                 "TICKET-001",
-                "fingerprint-123",
                 LocalDate.of(2026, 9, 20),
                 LocalTime.of(14, 30),
                 new BigDecimal("42.50"),
@@ -87,123 +90,101 @@ class TicketServiceTest {
      */
     @Test
     void shouldCreateTicket() {
-        when(ticketRepository.save(ticket)).thenReturn(ticket);
-
-        Ticket result = ticketService.createTicket(ticket);
-
-        assertThat(result).isSameAs(ticket);
-
-        verify(ticketRepository).save(ticket);
-    }
-
-    /**
-     * Vérifie qu'un ticket peut être créé à partir d'une image
-     * en passant par le service OCR puis le mapper.
-     *
-     * <p>Le fingerprint est calculé automatiquement par le service
-     * à partir des données du ticket OCR.</p>
-     */
-    @Test
-    void shouldCreateTicketFromOcr() {
-        byte[] image = "fake-image".getBytes();
-
-        OcrTicketData ocrData = new OcrTicketData(
-                ticket.getTicketNumber(),
-                ticket.getTicketDate(),
-                ticket.getTicketTime(),
-                ticket.getAmount(),
-                ticket.getRawOcrText()
-        );
-
-        when(ocrService.extractTicketData(image))
-                .thenReturn(ocrData);
-
-        when(ticketRepository.existsByFingerprintHash(anyString()))
-                .thenReturn(false);
-
-        when(ocrTicketMapper.toDomain(
-                eq(ocrData),
-                eq(merchantId),
-                eq(customerId),
-                anyString()
-        )).thenReturn(ticket);
-
         when(ticketRepository.save(ticket))
                 .thenReturn(ticket);
 
-        Ticket result = ticketService.createTicketFromOcr(
-                image,
-                merchantId,
-                customerId
-        );
+        Ticket result =
+                ticketService.createTicket(ticket);
 
-        assertThat(result).isSameAs(ticket);
-
-        verify(ocrService)
-                .extractTicketData(image);
-
-        verify(ticketRepository)
-                .existsByFingerprintHash(anyString());
-
-        verify(ocrTicketMapper).toDomain(
-                eq(ocrData),
-                eq(merchantId),
-                eq(customerId),
-                anyString()
-        );
+        assertThat(result)
+                .isSameAs(ticket);
 
         verify(ticketRepository)
                 .save(ticket);
     }
 
     /**
-     * Vérifie qu'une exception est levée lorsqu'un ticket
-     * ayant déjà été utilisé est soumis à nouveau.
+     * Vérifie qu'un ticket peut être construit à partir
+     * d'une image via le service OCR.
+     *
+     * <p>L'extraction OCR ne persiste pas le ticket et ne réalise
+     * pas de vérification de doublon.</p>
      */
     @Test
-    void shouldRejectDuplicateTicketFromOcr() {
-        byte[] image = "fake-image".getBytes();
+    void shouldExtractTicketFromOcr() {
+        byte[] image =
+                "fake-image".getBytes();
 
-        OcrTicketData ocrData = new OcrTicketData(
-                ticket.getTicketNumber(),
-                ticket.getTicketDate(),
-                ticket.getTicketTime(),
-                ticket.getAmount(),
-                ticket.getRawOcrText()
-        );
+        OcrTicketData ocrData =
+                new OcrTicketData(
+                        ticket.getTicketNumber(),
+                        ticket.getTicketDate(),
+                        ticket.getTicketTime(),
+                        ticket.getAmount(),
+                        ticket.getRawOcrText()
+                );
 
         when(ocrService.extractTicketData(image))
                 .thenReturn(ocrData);
 
-        when(ticketRepository.existsByFingerprintHash(anyString()))
-                .thenReturn(true);
+        when(ocrTicketMapper.toDomain(
+                ocrData,
+                merchantId,
+                customerId
+        )).thenReturn(ticket);
 
-        assertThatThrownBy(
-                () -> ticketService.createTicketFromOcr(
+        Ticket result =
+                ticketService.extractTicketFromOcr(
                         image,
                         merchantId,
                         customerId
-                )
-        )
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Ce ticket a déjà été utilisé.");
+                );
+
+        assertThat(result)
+                .isSameAs(ticket);
 
         verify(ocrService)
                 .extractTicketData(image);
 
-        verify(ticketRepository)
-                .existsByFingerprintHash(anyString());
-
-        verify(ocrTicketMapper, never())
+        verify(ocrTicketMapper)
                 .toDomain(
-                        any(),
-                        any(),
-                        any(),
-                        anyString()
+                        ocrData,
+                        merchantId,
+                        customerId
                 );
 
         verify(ticketRepository, never())
-                .save(any());
+                .existsByFingerprintHash(any());
+
+        verify(ticketRepository, never())
+                .save(any(Ticket.class));
+    }
+
+    /**
+     * Vérifie qu'une recherche de doublon peut être effectuée
+     * à partir de l'empreinte d'un ticket.
+     */
+    @Test
+    void shouldCheckIfTicketFingerprintAlreadyExists() {
+        String fingerprintHash =
+                ticket.getFingerprintHash();
+
+        when(ticketRepository.existsByFingerprintHash(
+                fingerprintHash
+        )).thenReturn(true);
+
+        boolean result =
+                ticketService.existsByFingerprintHash(
+                        fingerprintHash
+                );
+
+        assertThat(result)
+                .isTrue();
+
+        verify(ticketRepository)
+                .existsByFingerprintHash(
+                        fingerprintHash
+                );
     }
 
     /**
@@ -214,11 +195,14 @@ class TicketServiceTest {
         when(ticketRepository.findById(ticketId))
                 .thenReturn(Optional.of(ticket));
 
-        Optional<Ticket> result = ticketService.getTicketById(ticketId);
+        Optional<Ticket> result =
+                ticketService.getTicketById(ticketId);
 
-        assertThat(result).containsSame(ticket);
+        assertThat(result)
+                .containsSame(ticket);
 
-        verify(ticketRepository).findById(ticketId);
+        verify(ticketRepository)
+                .findById(ticketId);
     }
 
     /**
@@ -230,9 +214,12 @@ class TicketServiceTest {
                 .thenReturn(Optional.of(ticket));
 
         Optional<Ticket> result =
-                ticketService.getTicketByNumber("TICKET-001");
+                ticketService.getTicketByNumber(
+                        "TICKET-001"
+                );
 
-        assertThat(result).containsSame(ticket);
+        assertThat(result)
+                .containsSame(ticket);
 
         verify(ticketRepository)
                 .findByTicketNumber("TICKET-001");
@@ -247,9 +234,12 @@ class TicketServiceTest {
                 .thenReturn(List.of(ticket));
 
         List<Ticket> result =
-                ticketService.getTicketsByCustomer(customerId);
+                ticketService.getTicketsByCustomer(
+                        customerId
+                );
 
-        assertThat(result).containsExactly(ticket);
+        assertThat(result)
+                .containsExactly(ticket);
 
         verify(ticketRepository)
                 .findByCustomerId(customerId);
@@ -264,9 +254,12 @@ class TicketServiceTest {
                 .thenReturn(List.of(ticket));
 
         List<Ticket> result =
-                ticketService.getTicketsByMerchant(merchantId);
+                ticketService.getTicketsByMerchant(
+                        merchantId
+                );
 
-        assertThat(result).containsExactly(ticket);
+        assertThat(result)
+                .containsExactly(ticket);
 
         verify(ticketRepository)
                 .findByMerchantId(merchantId);
@@ -289,7 +282,8 @@ class TicketServiceTest {
                         merchantId
                 );
 
-        assertThat(result).containsExactly(ticket);
+        assertThat(result)
+                .containsExactly(ticket);
 
         verify(ticketRepository)
                 .findByCustomerIdAndMerchantId(
@@ -311,10 +305,14 @@ class TicketServiceTest {
 
         ticketService.validateTicket(ticketId);
 
-        assertThat(ticket.isValidated()).isTrue();
+        assertThat(ticket.isValidated())
+                .isTrue();
 
-        verify(ticketRepository).findById(ticketId);
-        verify(ticketRepository).save(ticket);
+        verify(ticketRepository)
+                .findById(ticketId);
+
+        verify(ticketRepository)
+                .save(ticket);
     }
 
     /**
@@ -340,8 +338,11 @@ class TicketServiceTest {
         assertThat(ticket.getRejectionReason())
                 .isEqualTo("Ticket illisible");
 
-        verify(ticketRepository).findById(ticketId);
-        verify(ticketRepository).save(ticket);
+        verify(ticketRepository)
+                .findById(ticketId);
+
+        verify(ticketRepository)
+                .save(ticket);
     }
 
     /**
@@ -360,8 +361,11 @@ class TicketServiceTest {
         assertThat(ticket.getStatus())
                 .isEqualTo(TicketStatus.DUPLICATE);
 
-        verify(ticketRepository).findById(ticketId);
-        verify(ticketRepository).save(ticket);
+        verify(ticketRepository)
+                .findById(ticketId);
+
+        verify(ticketRepository)
+                .save(ticket);
     }
 
     /**
@@ -377,11 +381,14 @@ class TicketServiceTest {
                 () -> ticketService.validateTicket(ticketId)
         )
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Ticket introuvable");
+                .hasMessageContaining(
+                        "Ticket introuvable"
+                );
 
-        verify(ticketRepository).findById(ticketId);
+        verify(ticketRepository)
+                .findById(ticketId);
 
         verify(ticketRepository, never())
-                .save(any());
+                .save(any(Ticket.class));
     }
 }

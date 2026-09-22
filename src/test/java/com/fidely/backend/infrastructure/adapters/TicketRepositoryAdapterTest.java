@@ -353,7 +353,6 @@ class TicketRepositoryAdapterTest {
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 "TICKET-" + id,
-                "fingerprint-" + id,
                 LocalDate.of(2026, 6, 15),
                 LocalTime.of(12, 30),
                 new BigDecimal("112.00"),

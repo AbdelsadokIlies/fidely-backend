@@ -12,18 +12,16 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class TicketTest {
 
-
     private final UUID id = UUID.randomUUID();
     private final UUID merchantId = UUID.randomUUID();
     private final UUID customerId = UUID.randomUUID();
     private final String ticketNumber = "TICKET-123";
-    private final String fingerprintHash = "abc123hash";
     private final LocalDate ticketDate = LocalDate.of(2026, 9, 20);
     private final LocalTime ticketTime = LocalTime.of(14, 30);
     private final BigDecimal amount = new BigDecimal("42.50");
     private final String rawOcrText = "Ticket de caisse";
-    private final LocalDateTime createdAt = LocalDateTime.of(2026, 9, 20, 15, 0);
-
+    private final LocalDateTime createdAt =
+            LocalDateTime.of(2026, 9, 20, 15, 0);
 
     @Test
     void shouldCreateValidTicket() {
@@ -34,7 +32,8 @@ class TicketTest {
         assertEquals(merchantId, ticket.getMerchantId());
         assertEquals(customerId, ticket.getCustomerId());
         assertEquals(ticketNumber, ticket.getTicketNumber());
-        assertEquals(fingerprintHash, ticket.getFingerprintHash());
+        assertNotNull(ticket.getFingerprintHash());
+        assertFalse(ticket.getFingerprintHash().isBlank());
         assertEquals(ticketDate, ticket.getTicketDate());
         assertEquals(ticketTime, ticket.getTicketTime());
         assertEquals(amount, ticket.getAmount());
@@ -44,7 +43,6 @@ class TicketTest {
         assertEquals(createdAt, ticket.getCreatedAt());
     }
 
-
     @Test
     void shouldRejectZeroAmount() {
         assertThrows(
@@ -52,7 +50,6 @@ class TicketTest {
                 () -> createTicket(BigDecimal.ZERO)
         );
     }
-
 
     @Test
     void shouldRejectNegativeAmount() {
@@ -62,7 +59,6 @@ class TicketTest {
         );
     }
 
-
     @Test
     void shouldRejectNullAmount() {
         assertThrows(
@@ -70,7 +66,6 @@ class TicketTest {
                 () -> createTicket(null)
         );
     }
-
 
     @Test
     void shouldRejectNullMerchant() {
@@ -81,7 +76,6 @@ class TicketTest {
                         null,
                         customerId,
                         ticketNumber,
-                        fingerprintHash,
                         ticketDate,
                         ticketTime,
                         amount,
@@ -92,7 +86,6 @@ class TicketTest {
                 )
         );
     }
-
 
     @Test
     void shouldRejectNullCustomer() {
@@ -103,7 +96,6 @@ class TicketTest {
                         merchantId,
                         null,
                         ticketNumber,
-                        fingerprintHash,
                         ticketDate,
                         ticketTime,
                         amount,
@@ -115,7 +107,6 @@ class TicketTest {
         );
     }
 
-
     @Test
     void shouldRejectNullTicketNumber() {
         assertThrows(
@@ -123,7 +114,6 @@ class TicketTest {
                 () -> createTicketWithTicketNumber(null)
         );
     }
-
 
     @Test
     void shouldRejectBlankTicketNumber() {
@@ -133,25 +123,6 @@ class TicketTest {
         );
     }
 
-
-    @Test
-    void shouldRejectNullFingerprintHash() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> createTicketWithFingerprintHash(null)
-        );
-    }
-
-
-    @Test
-    void shouldRejectBlankFingerprintHash() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> createTicketWithFingerprintHash("   ")
-        );
-    }
-
-
     @Test
     void shouldRejectNullTicketDate() {
         assertThrows(
@@ -159,7 +130,6 @@ class TicketTest {
                 () -> createTicketWithTicketDate(null)
         );
     }
-
 
     @Test
     void shouldRejectNullTicketTime() {
@@ -169,7 +139,6 @@ class TicketTest {
         );
     }
 
-
     @Test
     void shouldRejectNullStatus() {
         assertThrows(
@@ -178,7 +147,6 @@ class TicketTest {
         );
     }
 
-
     @Test
     void shouldRejectNullCreatedAt() {
         assertThrows(
@@ -186,7 +154,6 @@ class TicketTest {
                 () -> createTicketWithCreatedAt(null)
         );
     }
-
 
     @Test
     void shouldRejectRejectionReasonForPendingTicket() {
@@ -199,7 +166,6 @@ class TicketTest {
         );
     }
 
-
     @Test
     void shouldRejectRejectionReasonForValidatedTicket() {
         assertThrows(
@@ -210,7 +176,6 @@ class TicketTest {
                 )
         );
     }
-
 
     @Test
     void shouldRejectRejectionReasonForDuplicateTicket() {
@@ -223,7 +188,6 @@ class TicketTest {
         );
     }
 
-
     @Test
     void shouldRequireRejectionReasonForRejectedTicket() {
         assertThrows(
@@ -234,7 +198,6 @@ class TicketTest {
                 )
         );
     }
-
 
     @Test
     void shouldRejectBlankRejectionReason() {
@@ -247,7 +210,6 @@ class TicketTest {
         );
     }
 
-
     @Test
     void shouldCreateRejectedTicketWithReason() {
         Ticket ticket = createTicketWithStatus(
@@ -258,7 +220,6 @@ class TicketTest {
         assertEquals(TicketStatus.REJECTED, ticket.getStatus());
         assertEquals("Ticket illisible", ticket.getRejectionReason());
     }
-
 
     @Test
     void shouldCreateValidatedTicket() {
@@ -272,7 +233,6 @@ class TicketTest {
         assertNull(ticket.getRejectionReason());
     }
 
-
     @Test
     void shouldReturnFalseWhenTicketIsNotValidated() {
         Ticket ticket = createTicketWithStatus(
@@ -282,7 +242,6 @@ class TicketTest {
 
         assertFalse(ticket.isValidated());
     }
-
 
     @Test
     void shouldReturnTrueWhenTicketIsValidated() {
@@ -294,7 +253,6 @@ class TicketTest {
         assertTrue(ticket.isValidated());
     }
 
-
     @Test
     void shouldValidatePendingTicket() {
         Ticket ticket = createTicket();
@@ -305,7 +263,6 @@ class TicketTest {
         assertNull(ticket.getRejectionReason());
         assertTrue(ticket.isValidated());
     }
-
 
     @Test
     void shouldRejectValidationWhenTicketIsNotPending() {
@@ -323,7 +280,6 @@ class TicketTest {
         assertEquals("Ticket illisible", ticket.getRejectionReason());
     }
 
-
     @Test
     void shouldRejectPendingTicket() {
         Ticket ticket = createTicket();
@@ -333,7 +289,6 @@ class TicketTest {
         assertEquals(TicketStatus.REJECTED, ticket.getStatus());
         assertEquals("Ticket illisible", ticket.getRejectionReason());
     }
-
 
     @Test
     void shouldRejectRejectionWhenTicketIsNotPending() {
@@ -351,7 +306,6 @@ class TicketTest {
         assertNull(ticket.getRejectionReason());
     }
 
-
     @Test
     void shouldMarkPendingTicketAsDuplicate() {
         Ticket ticket = createTicket();
@@ -362,7 +316,6 @@ class TicketTest {
         assertNull(ticket.getRejectionReason());
         assertFalse(ticket.isValidated());
     }
-
 
     @Test
     void shouldRejectDuplicateWhenTicketIsNotPending() {
@@ -379,10 +332,57 @@ class TicketTest {
         assertEquals(TicketStatus.VALIDATED, ticket.getStatus());
     }
 
+    @Test
+    void shouldGenerateSameFingerprintForSameTicketData() {
+        Ticket firstTicket = createTicket();
 
-// -------------------------------------------------------------------------
-// Helpers
-// -------------------------------------------------------------------------
+        Ticket secondTicket = new Ticket(
+                UUID.randomUUID(),
+                merchantId,
+                customerId,
+                ticketNumber,
+                ticketDate,
+                ticketTime,
+                amount,
+                rawOcrText,
+                TicketStatus.PENDING,
+                null,
+                createdAt
+        );
+
+        assertEquals(
+                firstTicket.getFingerprintHash(),
+                secondTicket.getFingerprintHash()
+        );
+    }
+
+    @Test
+    void shouldGenerateDifferentFingerprintWhenTicketDataChanges() {
+        Ticket firstTicket = createTicket();
+
+        Ticket secondTicket = new Ticket(
+                UUID.randomUUID(),
+                merchantId,
+                customerId,
+                "TICKET-456",
+                ticketDate,
+                ticketTime,
+                amount,
+                rawOcrText,
+                TicketStatus.PENDING,
+                null,
+                createdAt
+        );
+
+        assertNotEquals(
+                firstTicket.getFingerprintHash(),
+                secondTicket.getFingerprintHash()
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
 
     private Ticket createTicket() {
         return createTicket(amount);
@@ -394,7 +394,6 @@ class TicketTest {
                 merchantId,
                 customerId,
                 ticketNumber,
-                fingerprintHash,
                 ticketDate,
                 ticketTime,
                 amount,
@@ -411,24 +410,6 @@ class TicketTest {
                 merchantId,
                 customerId,
                 number,
-                fingerprintHash,
-                ticketDate,
-                ticketTime,
-                amount,
-                rawOcrText,
-                TicketStatus.PENDING,
-                null,
-                createdAt
-        );
-    }
-
-    private Ticket createTicketWithFingerprintHash(String hash) {
-        return new Ticket(
-                id,
-                merchantId,
-                customerId,
-                ticketNumber,
-                hash,
                 ticketDate,
                 ticketTime,
                 amount,
@@ -445,7 +426,6 @@ class TicketTest {
                 merchantId,
                 customerId,
                 ticketNumber,
-                fingerprintHash,
                 date,
                 ticketTime,
                 amount,
@@ -462,7 +442,6 @@ class TicketTest {
                 merchantId,
                 customerId,
                 ticketNumber,
-                fingerprintHash,
                 ticketDate,
                 time,
                 amount,
@@ -482,7 +461,6 @@ class TicketTest {
                 merchantId,
                 customerId,
                 ticketNumber,
-                fingerprintHash,
                 ticketDate,
                 ticketTime,
                 amount,
@@ -499,7 +477,6 @@ class TicketTest {
                 merchantId,
                 customerId,
                 ticketNumber,
-                fingerprintHash,
                 ticketDate,
                 ticketTime,
                 amount,

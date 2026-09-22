@@ -7,34 +7,34 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Définit les opérations applicatives liées à la gestion des tickets.
+ * Port d'entrée pour la gestion des tickets.
  *
- * <p>Ce port d'entrée permet aux contrôleurs et autres composants
- * applicatifs d'interagir avec la gestion des tickets sans dépendre
- * directement de l'implémentation du service.</p>
+ * <p>Ce service permet de créer, rechercher et gérer les tickets associés
+ * aux clients et aux marchands.</p>
  */
 public interface ITicketService {
 
     /**
-     * Crée un nouveau ticket à partir d'un ticket déjà construit.
+     * Crée et persiste un ticket.
      *
      * @param ticket ticket à créer
-     * @return le ticket créé et sauvegardé
+     * @return ticket créé
      */
     Ticket createTicket(Ticket ticket);
 
     /**
-     * Crée un ticket à partir d'une image de ticket de caisse.
+     * Extrait les données d'un ticket à partir d'une image OCR.
      *
-     * <p>L'image est transmise au service OCR afin d'en extraire
-     * les informations nécessaires à la création du ticket.</p>
+     * <p>Cette opération effectue uniquement l'extraction OCR et la
+     * transformation des données extraites en objet métier {@link Ticket}.
+     * Le ticket retourné n'est pas persisté.</p>
      *
-     * @param image image du ticket de caisse à analyser
+     * @param image image du ticket à analyser
      * @param merchantId identifiant du marchand associé au ticket
-     * @param customerId identifiant du client associé au ticke
-     * @return le ticket créé et sauvegardé
+     * @param customerId identifiant du client associé au ticket
+     * @return ticket métier temporaire en attente de validation
      */
-    Ticket createTicketFromOcr(
+    Ticket extractTicketFromOcr(
             byte[] image,
             UUID merchantId,
             UUID customerId
@@ -43,41 +43,41 @@ public interface ITicketService {
     /**
      * Recherche un ticket à partir de son identifiant.
      *
-     * @param ticketId identifiant du ticket recherché
-     * @return le ticket s'il existe, sinon un Optional vide
+     * @param ticketId identifiant du ticket
+     * @return ticket correspondant s'il existe
      */
     Optional<Ticket> getTicketById(UUID ticketId);
 
     /**
      * Recherche un ticket à partir de son numéro.
      *
-     * @param ticketNumber numéro du ticket recherché
-     * @return le ticket s'il existe, sinon un Optional vide
+     * @param ticketNumber numéro du ticket
+     * @return ticket correspondant s'il existe
      */
     Optional<Ticket> getTicketByNumber(String ticketNumber);
 
     /**
-     * Récupère l'ensemble des tickets associés à un client.
+     * Récupère tous les tickets d'un client.
      *
      * @param customerId identifiant du client
-     * @return liste des tickets associés au client
+     * @return liste des tickets du client
      */
     List<Ticket> getTicketsByCustomer(UUID customerId);
 
     /**
-     * Récupère l'ensemble des tickets associés à un marchand.
+     * Récupère tous les tickets d'un marchand.
      *
      * @param merchantId identifiant du marchand
-     * @return liste des tickets associés au marchand
+     * @return liste des tickets du marchand
      */
     List<Ticket> getTicketsByMerchant(UUID merchantId);
 
     /**
-     * Récupère les tickets d'un client chez un marchand donné.
+     * Récupère les tickets d'un client pour un marchand donné.
      *
      * @param customerId identifiant du client
      * @param merchantId identifiant du marchand
-     * @return liste des tickets correspondant au client et au marchand
+     * @return liste des tickets correspondants
      */
     List<Ticket> getTicketsByCustomerAndMerchant(
             UUID customerId,
@@ -87,38 +87,31 @@ public interface ITicketService {
     /**
      * Valide un ticket.
      *
-     * <p>La validation est effectuée par le domaine du ticket.
-     * Seul un ticket actuellement en attente peut être validé.</p>
-     *
-     * @param ticketId identifiant du ticket à valider
-     * @throws IllegalArgumentException si le ticket n'existe pas
-     * @throws IllegalStateException si le ticket ne peut pas être validé
+     * @param ticketId identifiant du ticket
      */
     void validateTicket(UUID ticketId);
 
     /**
      * Rejette un ticket avec une raison.
      *
-     * <p>La raison du rejet est conservée avec le ticket afin
-     * de permettre d'expliquer pourquoi celui-ci a été rejeté.</p>
-     *
-     * @param ticketId identifiant du ticket à rejeter
+     * @param ticketId identifiant du ticket
      * @param reason raison du rejet
-     * @throws IllegalArgumentException si le ticket n'existe pas
-     * @throws IllegalStateException si le ticket ne peut pas être rejeté
      */
     void rejectTicket(UUID ticketId, String reason);
 
     /**
      * Marque un ticket comme doublon.
      *
-     * <p>Cette opération permet d'indiquer qu'un ticket a déjà été
-     * utilisé ou qu'il correspond à un ticket existant.</p>
-     *
-     * @param ticketId identifiant du ticket à marquer comme doublon
-     * @throws IllegalArgumentException si le ticket n'existe pas
-     * @throws IllegalStateException si le ticket ne peut pas être marqué
-     *                              comme doublon
+     * @param ticketId identifiant du ticket
      */
     void markAsDuplicate(UUID ticketId);
+
+    /**
+     * Vérifie si un ticket possédant l'empreinte fournie existe déjà.
+     *
+     * @param fingerprintHash empreinte du ticket
+     * @return {@code true} si un ticket correspondant existe déjà,
+     *         {@code false} sinon
+     */
+    boolean existsByFingerprintHash(String fingerprintHash);
 }

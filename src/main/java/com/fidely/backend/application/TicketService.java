@@ -8,10 +8,6 @@ import com.fidely.backend.infrastructure.ocr.OcrTicketData;
 import com.fidely.backend.infrastructure.ocr.OcrTicketMapper;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,10 +19,9 @@ import java.util.UUID;
  * de l'état des tickets. Il prend également en charge la transformation
  * des données issues de l'OCR en ticket métier.</p>
  *
- * <p>Lorsqu'un ticket est créé à partir d'une image, une empreinte
- * déterministe SHA-256 est calculée à partir des informations extraites
- * du ticket. Cette empreinte permet de détecter la soumission multiple
- * d'un même ticket.</p>
+ * <p>L'extraction OCR produit un ticket métier temporaire qui n'est pas
+ * persisté. La persistance du ticket intervient uniquement lorsque
+ * l'opération de création de transaction est validée.</p>
  */
 @Service
 public class TicketService implements ITicketService {
@@ -64,24 +59,23 @@ public class TicketService implements ITicketService {
     }
 
     /**
-     * Analyse une image de ticket et crée le ticket correspondant.
+     * Analyse une image de ticket et transforme les données extraites
+     * en ticket métier.
      *
-     * <p>Les données sont d'abord extraites par le service OCR.
-     * Une empreinte déterministe est ensuite calculée à partir
-     * de l'identifiant du marchand et des données du ticket.</p>
+     * <p>Cette méthode ne persiste pas le ticket. Le ticket retourné
+     * représente uniquement les données extraites par l'OCR et reste
+     * temporaire jusqu'à sa validation lors de la création de la transaction.</p>
      *
-     * <p>Avant de créer le ticket, le service vérifie si cette empreinte
-     * existe déjà. Si c'est le cas, l'opération est refusée afin
-     * d'empêcher l'utilisation multiple d'un même ticket.</p>
+     * <p>L'empreinte du ticket est calculée automatiquement par le domaine
+     * lors de la création du {@link Ticket}.</p>
      *
      * @param image image du ticket de caisse
      * @param merchantId identifiant du marchand
      * @param customerId identifiant du client
-     * @return ticket créé et persisté
-     * @throws IllegalStateException si le ticket a déjà été utilisé
+     * @return ticket métier temporaire en attente de validation
      */
     @Override
-    public Ticket createTicketFromOcr(
+    public Ticket extractTicketFromOcr(
             byte[] image,
             UUID merchantId,
             UUID customerId
@@ -89,26 +83,11 @@ public class TicketService implements ITicketService {
         OcrTicketData ocrData =
                 ocrService.extractTicketData(image);
 
-        String fingerprintHash =
-                generateFingerprintHash(
-                        merchantId,
-                        ocrData
-                );
-
-        if (ticketRepository.existsByFingerprintHash(fingerprintHash)) {
-            throw new IllegalStateException(
-                    "Ce ticket a déjà été utilisé."
-            );
-        }
-
-        Ticket ticket = ocrTicketMapper.toDomain(
+        return ocrTicketMapper.toDomain(
                 ocrData,
                 merchantId,
-                customerId,
-                fingerprintHash
+                customerId
         );
-
-        return ticketRepository.save(ticket);
     }
 
     /**
@@ -227,61 +206,15 @@ public class TicketService implements ITicketService {
     }
 
     /**
-     * Génère une empreinte SHA-256 déterministe pour un ticket.
+     * Vérifie si un ticket possédant l'empreinte fournie existe déjà.
      *
-     * <p>L'empreinte est calculée à partir des informations suivantes :</p>
-     *
-     * <ul>
-     *     <li>identifiant du marchand ;</li>
-     *     <li>numéro du ticket ;</li>
-     *     <li>date du ticket ;</li>
-     *     <li>heure du ticket ;</li>
-     *     <li>montant du ticket.</li>
-     * </ul>
-     *
-     * <p>Deux tickets produisant exactement les mêmes données
-     * produiront donc la même empreinte.</p>
-     *
-     * @param merchantId identifiant du marchand
-     * @param data données extraites par l'OCR
-     * @return empreinte SHA-256 encodée en hexadécimal
-     * @throws IllegalStateException si l'algorithme SHA-256
-     * n'est pas disponible
+     * @param fingerprintHash empreinte du ticket
+     * @return {@code true} si un ticket correspondant existe déjà,
+     * {@code false} sinon
      */
-    private String generateFingerprintHash(
-            UUID merchantId,
-            OcrTicketData data
-    ) {
-        String fingerprintData = String.join(
-                "|",
-                merchantId.toString(),
-                data.ticketNumber(),
-                data.ticketDate().toString(),
-                data.ticketTime().toString(),
-                data.amount().toPlainString()
-        );
-
-        try {
-            MessageDigest digest =
-                    MessageDigest.getInstance("SHA-256");
-
-            byte[] hash =
-                    digest.digest(
-                            fingerprintData.getBytes(
-                                    StandardCharsets.UTF_8
-                            )
-                    );
-
-            return HexFormat
-                    .of()
-                    .formatHex(hash);
-
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException(
-                    "SHA-256 indisponible",
-                    exception
-            );
-        }
+    @Override
+    public boolean existsByFingerprintHash(String fingerprintHash) {
+        return ticketRepository.existsByFingerprintHash(fingerprintHash);
     }
 
     /**
