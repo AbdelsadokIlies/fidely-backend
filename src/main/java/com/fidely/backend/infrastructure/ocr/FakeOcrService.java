@@ -10,6 +10,10 @@ import java.time.LocalTime;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
+/**
+ * Implémentation fictive du service OCR utilisée pour les tests
+ * et le développement sans véritable moteur de reconnaissance optique.
+ */
 @Service
 public class FakeOcrService implements IOcrService {
 

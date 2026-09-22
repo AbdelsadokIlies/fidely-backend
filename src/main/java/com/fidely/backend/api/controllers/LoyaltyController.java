@@ -3,7 +3,6 @@ package com.fidely.backend.api.controllers;
 import com.fidely.backend.api.dtos.loyalties.CreateLoyaltyRequest;
 import com.fidely.backend.api.dtos.loyalties.LoyaltyResponse;
 import com.fidely.backend.api.dtos.loyalties.LoyaltyTransactionResponse;
-import com.fidely.backend.api.dtos.loyalties.rewards.PointsRequest;
 import com.fidely.backend.api.dtos.mappers.LoyaltyDtoMapper;
 import com.fidely.backend.application.port.in.ILoyaltyService;
 import com.fidely.backend.domain.models.loyalties.Loyalty;
@@ -16,7 +15,13 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -314,7 +319,6 @@ public class LoyaltyController {
                     description = "Identifiant du programme de fidélité"
             )
             @PathVariable UUID loyaltyId,
-
             @Parameter(
                     description = "Image du ticket de caisse"
             )
