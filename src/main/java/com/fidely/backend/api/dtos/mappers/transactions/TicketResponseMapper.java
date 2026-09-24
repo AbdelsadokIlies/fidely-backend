@@ -1,6 +1,7 @@
-package com.fidely.backend.api.dtos.mappers.tickets;
+package com.fidely.backend.api.dtos.mappers.transactions;
 
-import com.fidely.backend.api.dtos.models.tickets.TicketResponse;
+import
+        com.fidely.backend.api.dtos.models.tickets.TicketResponse;
 import com.fidely.backend.domain.models.tickets.Ticket;
 import org.springframework.stereotype.Component;
 
