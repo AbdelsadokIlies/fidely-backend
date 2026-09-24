@@ -413,7 +413,7 @@ public class AuthService implements IAuthService {
                      %s
             
                      Ce lien permet de vérifier votre adresse email.
-                     """.formatted(verificationLink)
+                """.formatted(verificationLink)
         );
     }
 }

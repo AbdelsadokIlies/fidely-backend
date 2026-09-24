@@ -2,10 +2,10 @@ package com.fidely.backend.api.controllers;
 
 import com.fidely.backend.api.dtos.mappers.tickets.OcrTicketRequest;
 import com.fidely.backend.api.dtos.mappers.tickets.OcrTicketResponseMapper;
-import com.fidely.backend.api.dtos.mappers.tickets.TicketResponseMapper;
 import com.fidely.backend.api.dtos.mappers.transactions.CreateTransactionRequestMapper;
 import com.fidely.backend.api.dtos.mappers.transactions.CreateTransactionResponseMapper;
 import com.fidely.backend.api.dtos.mappers.transactions.ManualTransactionRequestMapper;
+import com.fidely.backend.api.dtos.mappers.transactions.TicketResponseMapper;
 import com.fidely.backend.api.dtos.models.tickets.OcrTicketResponse;
 import com.fidely.backend.api.dtos.models.tickets.TicketResponse;
 import com.fidely.backend.api.dtos.models.transactions.CreateTransactionRequest;

@@ -53,11 +53,9 @@ class PasswordResetServiceTest {
 
     private PasswordResetService service;
 
-    private ApiUrlProperties apiUrlProperties;
-
     @BeforeEach
     void setUp() {
-        apiUrlProperties = new ApiUrlProperties();
+        ApiUrlProperties apiUrlProperties = new ApiUrlProperties();
         apiUrlProperties.setUrl("http://localhost:8080/");
 
         service = new PasswordResetService(

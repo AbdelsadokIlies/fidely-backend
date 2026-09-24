@@ -10,8 +10,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests unitaires de {@link AuthUserResponseMapper}.
@@ -49,7 +48,7 @@ class AuthUserResponseMapperTest {
         assertEquals("john@example.com", response.email());
         assertEquals("John", response.firstName());
         assertEquals("Doe", response.lastName());
-        assertEquals(true, response.emailVerified());
+        assertTrue(response.emailVerified());
     }
 
     @Test
@@ -69,7 +68,7 @@ class AuthUserResponseMapperTest {
 
         AuthUserResponse response = mapper.toResponse(customer);
 
-        assertEquals(false, response.emailVerified());
+        assertFalse(response.emailVerified());
     }
 
     @Test

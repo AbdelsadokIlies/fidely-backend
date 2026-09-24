@@ -97,6 +97,7 @@ public class LoyaltyService implements ILoyaltyService {
      * @param loyaltyId identifiant du programme de fidélité
      * @return le programme de fidélité s'il existe, sinon un Optional vide
      */
+
     @Override
     public Optional<Loyalty> getLoyaltyById(UUID loyaltyId) {
         return loyaltyRepository.findById(loyaltyId);

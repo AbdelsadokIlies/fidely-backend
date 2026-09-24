@@ -26,11 +26,7 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -137,7 +133,7 @@ class AuthServiceTest {
         assertEquals(result.getId(), identity.getUserId());
         assertEquals("email", identity.getProvider());
         assertEquals(hashedPassword, identity.getPasswordHash());
-        assertEquals(null, identity.getProviderUserId());
+        assertNull(identity.getProviderUserId());
 
         verify(emailVerificationTokenGenerator)
                 .generate(result.getId());
@@ -208,7 +204,7 @@ class AuthServiceTest {
         assertEquals(result.getId(), identity.getUserId());
         assertEquals("email", identity.getProvider());
         assertEquals(hashedPassword, identity.getPasswordHash());
-        assertEquals(null, identity.getProviderUserId());
+        assertNull(identity.getProviderUserId());
 
         verify(emailVerificationTokenGenerator)
                 .generate(result.getId());

@@ -162,7 +162,7 @@ class LoyaltyServiceIntegrationTest {
                 .hasSize(1);
 
         LoyaltyTransactionEntity transaction =
-                transactions.get(0);
+                transactions.getFirst();
 
         assertThat(transaction.getLoyaltyId())
                 .isEqualTo(loyaltyId);
