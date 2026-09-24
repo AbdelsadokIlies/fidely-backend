@@ -1,6 +1,6 @@
 package com.fidely.backend.infrastructure.SpringDataRepositories;
 
-import com.fidely.backend.infrastructure.entities.loyalties.LoyaltyTransactionEntity;
+import com.fidely.backend.infrastructure.entities.models.loyalties.LoyaltyTransactionEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

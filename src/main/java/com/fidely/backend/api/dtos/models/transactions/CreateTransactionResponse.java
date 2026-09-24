@@ -22,4 +22,4 @@ public record CreateTransactionResponse(
         UUID merchantId,
         int pointsBalance,
         LocalDateTime updatedAt
-) {}
+) { }

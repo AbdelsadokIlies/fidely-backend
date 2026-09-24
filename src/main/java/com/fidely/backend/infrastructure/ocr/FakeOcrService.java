@@ -1,6 +1,6 @@
 package com.fidely.backend.infrastructure.ocr;
 
-import com.fidely.backend.application.port.out.IOcrService;
+import com.fidely.backend.application.port.out.ocr.IOcrService;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;

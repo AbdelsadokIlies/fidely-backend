@@ -21,3 +21,13 @@ spring:
 
   flyway:
     enabled: true
+
+fidely:
+  api-url:
+    url: http://localhost:8080/
+
+  security:
+    jwt:
+      secret: ${FIDELY_JWT_SECRET}
+      access-token-expiration-minutes: 15
+      email-verification-token-expiration-minutes: 60

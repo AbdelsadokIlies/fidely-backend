@@ -1,6 +1,6 @@
 package com.fidely.backend.infrastructure.SpringDataRepositories;
 
-import com.fidely.backend.infrastructure.entities.tickets.TicketEntity;
+import com.fidely.backend.infrastructure.entities.models.tickets.TicketEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

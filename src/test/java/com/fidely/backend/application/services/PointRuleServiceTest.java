@@ -1,6 +1,5 @@
 package com.fidely.backend.application.services;
 
-import com.fidely.backend.application.PointRuleService;
 import com.fidely.backend.application.port.out.IPointRuleRepository;
 import com.fidely.backend.domain.models.loyalties.Rewards.PointRule;
 import com.fidely.backend.domain.models.loyalties.Rewards.RoundingMethod;

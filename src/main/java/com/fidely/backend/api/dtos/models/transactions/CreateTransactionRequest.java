@@ -57,4 +57,4 @@ public record CreateTransactionRequest(
         BigDecimal amount,
 
         String rawOcrText
-) {}
+) { }

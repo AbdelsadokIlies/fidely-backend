@@ -3,8 +3,8 @@ package com.fidely.backend.infrastructure.adapters;
 import com.fidely.backend.application.port.out.IPointRuleRepository;
 import com.fidely.backend.domain.models.loyalties.Rewards.PointRule;
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataPointRuleRepository;
-import com.fidely.backend.infrastructure.entities.loyalties.Rewards.PointRuleEntity;
-import com.fidely.backend.infrastructure.mappers.loyalties.Rewards.PointRuleMapper;
+import com.fidely.backend.infrastructure.entities.models.loyalties.Rewards.PointRuleEntity;
+import com.fidely.backend.infrastructure.entities.mappers.loyalties.Rewards.PointRuleMapper;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;

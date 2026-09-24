@@ -3,8 +3,8 @@ package com.fidely.backend.infrastructure.adapters;
 import com.fidely.backend.domain.models.tickets.Ticket;
 import com.fidely.backend.application.port.out.ITicketRepository;
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataTicketRepository;
-import com.fidely.backend.infrastructure.entities.tickets.TicketEntity;
-import com.fidely.backend.infrastructure.mappers.tickets.TicketMapper;
+import com.fidely.backend.infrastructure.entities.models.tickets.TicketEntity;
+import com.fidely.backend.infrastructure.entities.mappers.tickets.TicketMapper;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;

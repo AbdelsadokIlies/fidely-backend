@@ -6,8 +6,12 @@ import java.util.UUID;
 /**
  * Représente un utilisateur ayant un rôle de gestion sur un marchand.
  *
- * <p>Un gestionnaire est associé à un compte utilisateur, à un marchand
- * et à un rôle définissant ses permissions.</p>
+ * <p>Un gestionnaire est associé à un compte utilisateur et à un marchand.
+ * Son type concret {@link MerchantManager} représente son rôle de gestionnaire
+ * de marchand dans le domaine.</p>
+ *
+ * <p>Les informations relatives à l'authentification sont gérées
+ * séparément du compte utilisateur.</p>
  */
 public class MerchantManager extends User {
 
@@ -16,16 +20,15 @@ public class MerchantManager extends User {
     /**
      * Crée un nouveau manager de marchand.
      *
-     * @param id identifiant du marchand
-     * @param merchantId id de la société du marchand
-     * @param email email du marchand
-     * @param firstName prénom du marchand
-     * @param lastName nom du marchand
-     * @param passwordHash mot de passe haché du marchand
-     * @param emailVerified indique si l'email a été vérifié
+     * @param id identifiant de l'utilisateur
+     * @param merchantId identifiant du marchand associé
+     * @param email adresse e-mail du manager
+     * @param firstName prénom du manager
+     * @param lastName nom du manager
+     * @param emailVerified indique si l'e-mail a été vérifié
      * @param active indique si l'utilisateur est actif
-     * @param createdAt date de création du marchand
-     * @param updatedAt date de dernière modification du marchand
+     * @param createdAt date de création du compte
+     * @param updatedAt date de dernière modification du compte
      */
     public MerchantManager(
             UUID id,
@@ -33,7 +36,6 @@ public class MerchantManager extends User {
             String email,
             String firstName,
             String lastName,
-            String passwordHash,
             boolean emailVerified,
             boolean active,
             LocalDateTime createdAt,
@@ -44,7 +46,6 @@ public class MerchantManager extends User {
                 email,
                 firstName,
                 lastName,
-                passwordHash,
                 emailVerified,
                 active,
                 createdAt,
@@ -53,6 +54,11 @@ public class MerchantManager extends User {
         this.merchantId = merchantId;
     }
 
+    /**
+     * Retourne l'identifiant du marchand associé.
+     *
+     * @return identifiant du marchand associé
+     */
     public UUID getMerchantId() {
         return merchantId;
     }

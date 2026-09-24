@@ -1,7 +1,7 @@
 package com.fidely.backend.infrastructure;
 
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataPointRuleRepository;
-import com.fidely.backend.infrastructure.entities.loyalties.Rewards.PointRuleEntity;
+import com.fidely.backend.infrastructure.entities.models.loyalties.Rewards.PointRuleEntity;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;

@@ -1,7 +1,7 @@
 package com.fidely.backend.infrastructure;
 
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataLoyaltyRepository;
-import com.fidely.backend.infrastructure.entities.loyalties.LoyaltyEntity;
+import com.fidely.backend.infrastructure.entities.models.loyalties.LoyaltyEntity;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
@@ -282,14 +282,13 @@ class SpringDataLoyaltyRepositoryTest {
     private void insertCustomer(UUID id) {
         jdbcTemplate.update(
                 "INSERT INTO users " +
-                        "(id, email, first_name, last_name, password_hash) " +
-                        "VALUES (?, ?, ?, ?, ?) " +
+                        "(id, email, first_name, last_name) " +
+                        "VALUES (?, ?, ?, ?) " +
                         "ON CONFLICT (id) DO NOTHING",
                 id,
                 id + "@test.com",
                 "Test",
-                "User",
-                "hash"
+                "User"
         );
     }
 }

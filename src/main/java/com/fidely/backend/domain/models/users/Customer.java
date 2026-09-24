@@ -5,11 +5,13 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
-
  * Représente un client de la plateforme Fidely.
  *
  * <p>Un client est associé à un compte utilisateur et possède ses
  * informations personnelles nécessaires à son identification.</p>
+ *
+ * <p>Les informations relatives à l'authentification sont gérées
+ * séparément du compte utilisateur.</p>
  */
 public class Customer extends User {
 
@@ -17,7 +19,6 @@ public class Customer extends User {
     private final LocalDate birthDate;
 
     /**
-
      * Crée un nouveau client.
      *
      * @param id identifiant du client
@@ -25,8 +26,7 @@ public class Customer extends User {
      * @param firstName prénom du client
      * @param lastName nom du client
      * @param phone numéro de téléphone du client
-     * @param passwordHash mot de passe haché du client
-     * @param emailVerified indique si l'email à été vérifié
+     * @param emailVerified indique si l'email a été vérifié
      * @param active indique si l'utilisateur est actif
      * @param birthDate date de naissance du client
      * @param createdAt date de création du client
@@ -38,22 +38,22 @@ public class Customer extends User {
             String firstName,
             String lastName,
             String phone,
-            String passwordHash,
             boolean emailVerified,
             boolean active,
             LocalDate birthDate,
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {
-        super(id,
+        super(
+                id,
                 email,
                 firstName,
                 lastName,
-                passwordHash,
                 emailVerified,
                 active,
                 createdAt,
-                updatedAt);
+                updatedAt
+        );
         this.phone = phone;
         this.birthDate = birthDate;
     }
@@ -62,6 +62,11 @@ public class Customer extends User {
         return phone;
     }
 
+    /**
+     * Retourne la date de naissance du client.
+     *
+     * @return date de naissance du client
+     */
     public LocalDate getBirthDate() {
         return birthDate;
     }

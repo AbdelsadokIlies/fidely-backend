@@ -2,8 +2,8 @@ package com.fidely.backend.infrastructure.mappers.Rewards;
 
 import com.fidely.backend.domain.models.loyalties.Rewards.PointRule;
 import com.fidely.backend.domain.models.loyalties.Rewards.RoundingMethod;
-import com.fidely.backend.infrastructure.entities.loyalties.Rewards.PointRuleEntity;
-import com.fidely.backend.infrastructure.mappers.loyalties.Rewards.PointRuleMapper;
+import com.fidely.backend.infrastructure.entities.models.loyalties.Rewards.PointRuleEntity;
+import com.fidely.backend.infrastructure.entities.mappers.loyalties.Rewards.PointRuleMapper;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;

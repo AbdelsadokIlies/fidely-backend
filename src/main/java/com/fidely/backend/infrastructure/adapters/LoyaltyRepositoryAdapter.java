@@ -5,10 +5,10 @@ import com.fidely.backend.domain.models.loyalties.Loyalty;
 import com.fidely.backend.domain.models.loyalties.LoyaltyTransaction;
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataLoyaltyRepository;
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataLoyaltyTransactionRepository;
-import com.fidely.backend.infrastructure.entities.loyalties.LoyaltyEntity;
-import com.fidely.backend.infrastructure.entities.loyalties.LoyaltyTransactionEntity;
-import com.fidely.backend.infrastructure.mappers.loyalties.LoyaltyMapper;
-import com.fidely.backend.infrastructure.mappers.loyalties.LoyaltyTransactionMapper;
+import com.fidely.backend.infrastructure.entities.models.loyalties.LoyaltyEntity;
+import com.fidely.backend.infrastructure.entities.models.loyalties.LoyaltyTransactionEntity;
+import com.fidely.backend.infrastructure.entities.mappers.loyalties.LoyaltyMapper;
+import com.fidely.backend.infrastructure.entities.mappers.loyalties.LoyaltyTransactionMapper;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;

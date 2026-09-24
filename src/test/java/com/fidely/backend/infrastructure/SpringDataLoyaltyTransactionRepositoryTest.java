@@ -1,7 +1,7 @@
 package com.fidely.backend.infrastructure;
 
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataLoyaltyTransactionRepository;
-import com.fidely.backend.infrastructure.entities.loyalties.LoyaltyTransactionEntity;
+import com.fidely.backend.infrastructure.entities.models.loyalties.LoyaltyTransactionEntity;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -312,13 +312,12 @@ class SpringDataLoyaltyTransactionRepositoryTest {
     private void insertCustomer(UUID id) {
         jdbcTemplate.update(
                 "INSERT INTO users " +
-                        "(id, email, first_name, last_name, password_hash) " +
-                        "VALUES (?, ?, ?, ?, ?)",
+                        "(id, email, first_name, last_name) " +
+                        "VALUES (?, ?, ?, ?)",
                 id,
                 id + "@test.com",
                 "Test",
-                "User",
-                "hash"
+                "User"
         );
     }
 }

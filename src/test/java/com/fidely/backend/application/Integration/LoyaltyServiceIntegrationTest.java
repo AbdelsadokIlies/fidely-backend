@@ -2,7 +2,7 @@ package com.fidely.backend.application.Integration;
 
 import com.fidely.backend.application.port.in.ILoyaltyService;
 import com.fidely.backend.application.port.in.ITicketService;
-import com.fidely.backend.application.port.out.IOcrService;
+import com.fidely.backend.application.port.out.ocr.IOcrService;
 import com.fidely.backend.domain.models.loyalties.Rewards.RoundingMethod;
 import com.fidely.backend.domain.models.tickets.Ticket;
 import com.fidely.backend.domain.models.tickets.TicketStatus;
@@ -10,10 +10,10 @@ import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataLoyalt
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataLoyaltyTransactionRepository;
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataPointRuleRepository;
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataTicketRepository;
-import com.fidely.backend.infrastructure.entities.loyalties.LoyaltyEntity;
-import com.fidely.backend.infrastructure.entities.loyalties.LoyaltyTransactionEntity;
-import com.fidely.backend.infrastructure.entities.loyalties.Rewards.PointRuleEntity;
-import com.fidely.backend.infrastructure.entities.tickets.TicketEntity;
+import com.fidely.backend.infrastructure.entities.models.loyalties.LoyaltyEntity;
+import com.fidely.backend.infrastructure.entities.models.loyalties.LoyaltyTransactionEntity;
+import com.fidely.backend.infrastructure.entities.models.loyalties.Rewards.PointRuleEntity;
+import com.fidely.backend.infrastructure.entities.models.tickets.TicketEntity;
 import com.fidely.backend.infrastructure.ocr.OcrTicketData;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 /**
+
  * Tests d'intégration du workflow complet d'attribution
  * de points à partir d'un ticket de caisse.
  *
@@ -50,14 +51,29 @@ import static org.mockito.Mockito.when;
  * <p>Le workflow testé est le suivant :</p>
  *
  * <ol>
- *     <li>Une image est envoyée au service OCR.</li>
- *     <li>Les données OCR sont transformées en {@link Ticket}.</li>
- *     <li>Le ticket reste temporaire et n'est pas encore persisté.</li>
- *     <li>Le ticket est transmis au service de fidélité.</li>
- *     <li>Les points sont calculés et attribués.</li>
- *     <li>Le ticket et la transaction sont persistés.</li>
- *     <li>Le ticket est finalement validé.</li>
+ * ```
+ <li>Une image est envoyée au service OCR.</li>
+ ```
+ * ```
+ <li>Les données OCR sont transformées en {@link Ticket}.</li>
+ ```
+ * ```
+ <li>Le ticket reste temporaire et n'est pas encore persisté.</li>
+ ```
+ * ```
+ <li>Le ticket est transmis au service de fidélité.</li>
+ ```
+ * ```
+ <li>Les points sont calculés et attribués.</li>
+ ```
+ * ```
+ <li>Le ticket et la transaction sont persistés.</li>
+ ```
+ * ```
+ <li>Le ticket est finalement validé.</li>
+ ```
  * </ol>
+
  */
 @SpringBootTest
 class LoyaltyServiceIntegrationTest {
@@ -687,14 +703,13 @@ class LoyaltyServiceIntegrationTest {
         jdbcTemplate.update(
                 """
                 INSERT INTO users
-                    (id, email, first_name, last_name, password_hash)
-                VALUES (?, ?, ?, ?, ?)
+                    (id, email, first_name, last_name)
+                VALUES (?, ?, ?, ?)
                 """,
                 id,
                 id + "@test.com",
                 "Test",
-                "User",
-                "hash"
+                "User"
         );
     }
 }

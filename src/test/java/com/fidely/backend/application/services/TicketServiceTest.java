@@ -1,7 +1,6 @@
 package com.fidely.backend.application.services;
 
-import com.fidely.backend.application.TicketService;
-import com.fidely.backend.application.port.out.IOcrService;
+import com.fidely.backend.application.port.out.ocr.IOcrService;
 import com.fidely.backend.application.port.out.ITicketRepository;
 import com.fidely.backend.domain.models.tickets.Ticket;
 import com.fidely.backend.domain.models.tickets.TicketStatus;
