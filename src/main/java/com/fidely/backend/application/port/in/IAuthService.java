@@ -109,6 +109,14 @@ public interface IAuthService {
     AuthenticationResult refresh(String refreshToken);
 
     /**
+     * Déconnecte l'utilisateur en révoquant sa session
+     * de refresh token.
+     *
+     * @param refreshToken refresh token présent dans le cookie HTTP
+     */
+    void logout(String refreshToken);
+
+    /**
      * Résultat d'une authentification ou d'un renouvellement
      * de session.
      *

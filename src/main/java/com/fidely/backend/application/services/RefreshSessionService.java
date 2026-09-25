@@ -188,4 +188,27 @@ public class RefreshSessionService implements IRefreshSessionService {
                 LocalDateTime.now()
         );
     }
+
+    @Override
+    @Transactional
+    public void revokeSession(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Refresh token cannot be null or blank"
+            );
+        }
+
+        String tokenHash = refreshTokenHasher.hash(refreshToken);
+
+        RefreshSession session =
+                refreshSessionRepository.findByTokenHash(tokenHash)
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "Invalid refresh token"
+                        ));
+
+        refreshSessionRepository.revokeFamily(
+                session.getFamilyId(),
+                LocalDateTime.now()
+        );
+    }
 }

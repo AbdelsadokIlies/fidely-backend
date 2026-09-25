@@ -19,6 +19,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -515,6 +516,87 @@ class RefreshSessionServiceTest {
 
         verify(refreshSessionRepository, never())
                 .revokeFamily(any(UUID.class), any(LocalDateTime.class));
+    }
+
+    @Test
+    void shouldRevokeSessionFamily() {
+        String refreshToken = "refresh-token";
+
+        UUID userId = UUID.randomUUID();
+        UUID familyId = UUID.randomUUID();
+
+        RefreshSession session = new RefreshSession(
+                UUID.randomUUID(),
+                userId,
+                familyId,
+                "hashed-refresh-token",
+                LocalDateTime.now().plusDays(30),
+                null,
+                LocalDateTime.now()
+        );
+
+        when(refreshTokenHasher.hash(refreshToken))
+                .thenReturn("hashed-refresh-token");
+
+        when(refreshSessionRepository.findByTokenHash(
+                "hashed-refresh-token"
+        )).thenReturn(Optional.of(session));
+
+        service.revokeSession(refreshToken);
+
+        verify(refreshTokenHasher).hash(refreshToken);
+
+        verify(refreshSessionRepository)
+                .findByTokenHash("hashed-refresh-token");
+
+        verify(refreshSessionRepository)
+                .revokeFamily(
+                        org.mockito.ArgumentMatchers.eq(familyId),
+                        org.mockito.ArgumentMatchers.any(LocalDateTime.class)
+                );
+    }
+
+    @Test
+    void shouldRejectLogoutWhenRefreshTokenIsNull() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.revokeSession(null)
+        );
+
+        verifyNoInteractions(
+                refreshTokenHasher,
+                refreshSessionRepository
+        );
+    }
+
+    @Test
+    void shouldRejectLogoutWhenRefreshTokenIsInvalid() {
+        String refreshToken = "invalid-refresh-token";
+
+        when(refreshTokenHasher.hash(refreshToken))
+                .thenReturn("hashed-invalid-refresh-token");
+
+        when(refreshSessionRepository.findByTokenHash(
+                "hashed-invalid-refresh-token"
+        )).thenReturn(Optional.empty());
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.revokeSession(refreshToken)
+        );
+
+        verify(refreshTokenHasher).hash(refreshToken);
+
+        verify(refreshSessionRepository)
+                .findByTokenHash("hashed-invalid-refresh-token");
+
+        verify(
+                refreshSessionRepository,
+                never()
+        ).revokeFamily(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()
+        );
     }
 
     // ---------------------------------------------------------

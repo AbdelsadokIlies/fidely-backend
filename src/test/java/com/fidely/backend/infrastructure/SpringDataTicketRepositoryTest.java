@@ -1,5 +1,6 @@
 package com.fidely.backend.infrastructure;
 
+import com.fidely.backend.IntegrationTest;
 import com.fidely.backend.domain.models.tickets.TicketStatus;
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataTicketRepository;
 import com.fidely.backend.infrastructure.entities.models.tickets.TicketEntity;
@@ -23,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @AutoConfigureTestDatabase(
         replace = AutoConfigureTestDatabase.Replace.NONE
 )
-class SpringDataTicketRepositoryTest {
+class SpringDataTicketRepositoryTest extends IntegrationTest {
 
     @Autowired
     private SpringDataTicketRepository repository;

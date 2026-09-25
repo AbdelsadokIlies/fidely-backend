@@ -293,8 +293,6 @@ public class AuthService implements IAuthService {
                 accessToken,
                 refreshResult.refreshToken()
         );
-  
-
     }
 
     @Override
@@ -336,8 +334,18 @@ public class AuthService implements IAuthService {
                 accessToken,
                 rotationResult.refreshToken()
         );
-  
+    }
 
+    @Override
+    @Transactional
+    public void logout(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Refresh token cannot be null or blank"
+            );
+        }
+
+        refreshSessionService.revokeSession(refreshToken);
     }
 
     private String determineRole(User user) {

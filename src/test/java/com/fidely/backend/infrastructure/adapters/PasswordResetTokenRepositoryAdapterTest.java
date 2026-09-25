@@ -1,5 +1,6 @@
 package com.fidely.backend.infrastructure.adapters;
 
+import com.fidely.backend.IntegrationTest;
 import com.fidely.backend.application.port.out.IPasswordResetTokenRepository.PasswordResetTokenData;
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataPasswordResetTokenRepository;
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataUserRepository;
@@ -23,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @AutoConfigureTestDatabase(
         replace = AutoConfigureTestDatabase.Replace.NONE
 )
-class PasswordResetTokenRepositoryAdapterTest {
+class PasswordResetTokenRepositoryAdapterTest extends IntegrationTest {
 
     @Autowired
     private SpringDataPasswordResetTokenRepository springDataRepository;

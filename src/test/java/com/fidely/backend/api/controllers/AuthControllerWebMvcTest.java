@@ -8,11 +8,13 @@ import com.fidely.backend.application.port.in.IAuthService;
 import com.fidely.backend.application.port.in.IPasswordResetService;
 import com.fidely.backend.domain.models.users.Customer;
 import com.fidely.backend.domain.models.users.MerchantManager;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -842,5 +844,40 @@ class AuthControllerWebMvcTest {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(passwordResetService);
+    }
+
+    @Test
+    void shouldLogout() throws Exception {
+        String refreshToken = "refresh-token";
+
+        mockMvc.perform(
+                        post("/auth/logout")
+                                .cookie(
+                                        new Cookie(
+                                                "fidely_refresh_token",
+                                                refreshToken
+                                        ),
+                                        new Cookie(
+                                                "fidely_access_token",
+                                                "access-token"
+                                        )
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(
+                        header().stringValues(
+                                HttpHeaders.SET_COOKIE,
+                                org.hamcrest.Matchers.hasItems(
+                                        org.hamcrest.Matchers.containsString(
+                                                "fidely_access_token="
+                                        ),
+                                        org.hamcrest.Matchers.containsString(
+                                                "fidely_refresh_token="
+                                        )
+                                )
+                        )
+                );
+
+        verify(authService).logout(refreshToken);
     }
 }

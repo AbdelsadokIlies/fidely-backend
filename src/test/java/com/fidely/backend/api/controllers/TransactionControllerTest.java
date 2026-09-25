@@ -1,5 +1,6 @@
 package com.fidely.backend.api.controllers;
 
+import com.fidely.backend.IntegrationTest;
 import com.fidely.backend.api.dtos.mappers.tickets.OcrTicketRequest;
 import com.fidely.backend.api.dtos.mappers.tickets.OcrTicketResponseMapper;
 import com.fidely.backend.api.dtos.models.tickets.OcrTicketResponse;
@@ -13,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

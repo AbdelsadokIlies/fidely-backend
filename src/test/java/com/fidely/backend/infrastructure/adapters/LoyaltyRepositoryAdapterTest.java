@@ -1,5 +1,6 @@
 package com.fidely.backend.infrastructure.adapters;
 
+import com.fidely.backend.IntegrationTest;
 import com.fidely.backend.domain.models.loyalties.Loyalty;
 import com.fidely.backend.domain.models.loyalties.LoyaltyTransaction;
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataLoyaltyRepository;
@@ -23,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class LoyaltyRepositoryAdapterTest {
+class LoyaltyRepositoryAdapterTest{
 
     @Mock
     private SpringDataLoyaltyRepository loyaltyRepository;

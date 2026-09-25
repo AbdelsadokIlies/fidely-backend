@@ -1,5 +1,6 @@
 package com.fidely.backend.infrastructure.adapters;
 
+import com.fidely.backend.IntegrationTest;
 import com.fidely.backend.domain.models.auth.AuthIdentity;
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataAuthIdentityRepository;
 import com.fidely.backend.infrastructure.entities.models.auth.AuthIdentityEntity;

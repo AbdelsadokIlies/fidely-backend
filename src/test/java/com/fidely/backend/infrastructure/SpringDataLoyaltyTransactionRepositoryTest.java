@@ -1,5 +1,6 @@
 package com.fidely.backend.infrastructure;
 
+import com.fidely.backend.IntegrationTest;
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataLoyaltyTransactionRepository;
 import com.fidely.backend.infrastructure.entities.models.loyalties.LoyaltyTransactionEntity;
 import org.junit.jupiter.api.Test;
@@ -24,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @AutoConfigureTestDatabase(
         replace = AutoConfigureTestDatabase.Replace.NONE
 )
-class SpringDataLoyaltyTransactionRepositoryTest {
+class SpringDataLoyaltyTransactionRepositoryTest extends IntegrationTest {
 
     @Autowired
     private SpringDataLoyaltyTransactionRepository repository;

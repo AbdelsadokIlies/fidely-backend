@@ -1,5 +1,6 @@
 package com.fidely.backend.infrastructure.adapters;
 
+import com.fidely.backend.IntegrationTest;
 import com.fidely.backend.domain.models.users.Customer;
 import com.fidely.backend.domain.models.users.MerchantManager;
 import com.fidely.backend.domain.models.users.User;

@@ -53,10 +53,13 @@ public class SecurityConfig {
                                 "/auth/login",
                                 "/auth/refresh",
                                 "/auth/verify-email",
+                                "/auth/forgot-password",
+                                "/auth/reset-password",
+                                "/auth/resend-verification-email",
+                                "/auth/logout",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/v3/api-docs/**",
-                                "/auth/resend-verification-email"
+                                "/v3/api-docs/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

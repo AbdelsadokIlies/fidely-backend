@@ -1,5 +1,6 @@
 package com.fidely.backend.infrastructure.adapters;
 
+import com.fidely.backend.IntegrationTest;
 import com.fidely.backend.domain.models.tickets.Ticket;
 import com.fidely.backend.domain.models.tickets.TicketStatus;
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataTicketRepository;

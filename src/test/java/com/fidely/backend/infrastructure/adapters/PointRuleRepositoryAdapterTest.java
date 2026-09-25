@@ -1,5 +1,6 @@
 package com.fidely.backend.infrastructure.adapters;
 
+import com.fidely.backend.IntegrationTest;
 import com.fidely.backend.domain.models.loyalties.Rewards.PointRule;
 import com.fidely.backend.domain.models.loyalties.Rewards.RoundingMethod;
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataPointRuleRepository;
@@ -21,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class PointRuleRepositoryAdapterTest {
+class PointRuleRepositoryAdapterTest{
 
     @Mock
     private SpringDataPointRuleRepository pointRuleRepository;

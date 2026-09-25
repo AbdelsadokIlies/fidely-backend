@@ -1,5 +1,6 @@
 package com.fidely.backend.application.services;
 
+import com.fidely.backend.IntegrationTest;
 import com.fidely.backend.application.port.in.ILoyaltyService;
 import com.fidely.backend.application.port.in.ITicketService;
 import com.fidely.backend.application.port.out.ocr.IOcrService;
@@ -53,7 +54,7 @@ import static org.mockito.Mockito.when;
  * lorsque la transaction est effectivement créée.</p>
  */
 @SpringBootTest
-class LoyaltyServiceIntegrationTest {
+class LoyaltyServiceIntegrationTest extends IntegrationTest {
 
     @Autowired
     private ILoyaltyService loyaltyService;

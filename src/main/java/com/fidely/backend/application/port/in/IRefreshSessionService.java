@@ -47,6 +47,17 @@ public interface IRefreshSessionService {
      */
     void revokeFamily(UUID familyId);
 
+    /**>
+     * Révoque la session correspondant à un refresh token.
+     *
+     * <p>La famille entière de sessions est révoquée afin
+     * d'invalider également les éventuels tokens issus
+     * de rotations précédentes.</p>
+     *
+     * @param refreshToken refresh token présenté par le client
+     */
+    void revokeSession(String refreshToken);
+
     /**
      * Résultat de la création d'une session de refresh.
      *

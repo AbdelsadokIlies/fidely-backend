@@ -309,6 +309,48 @@ public class AuthController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping(
+            path = "/logout"
+    )
+    public ResponseEntity<Void> logout(
+            @CookieValue(
+                    name = REFRESH_TOKEN_COOKIE,
+                    required = false
+            ) String refreshToken
+    ) {
+        authService.logout(refreshToken);
+
+        ResponseCookie accessTokenCookie = ResponseCookie
+                .from(ACCESS_TOKEN_COOKIE, "")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(Duration.ZERO)
+                .build();
+
+        ResponseCookie refreshTokenCookie = ResponseCookie
+                .from(REFRESH_TOKEN_COOKIE, "")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Lax")
+                .path("/auth/refresh")
+                .maxAge(Duration.ZERO)
+                .build();
+
+        return ResponseEntity
+                .ok()
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        accessTokenCookie.toString()
+                )
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        refreshTokenCookie.toString()
+                )
+                .build();
+    }
+
     /**
      * Construit le cookie contenant l'access token.
      *
