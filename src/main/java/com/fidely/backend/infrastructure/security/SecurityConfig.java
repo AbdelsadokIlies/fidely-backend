@@ -48,19 +48,21 @@ public class SecurityConfig {
                         UsernamePasswordAuthenticationFilter.class
                 )
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(
-                                "/auth/register/**",
-                                "/auth/login",
-                                "/auth/refresh",
-                                "/auth/verify-email",
-                                "/auth/forgot-password",
-                                "/auth/reset-password",
-                                "/auth/resend-verification-email",
-                                "/auth/logout",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/v3/api-docs/**"
-                        ).permitAll()
+                .requestMatchers(
+                        "/auth/register/**",
+                        "/auth/login",
+                        "/auth/refresh",
+                        "/auth/verify-email",
+                        "/auth/forgot-password",
+                        "/auth/reset-password",
+                        "/auth/resend-verification-email",
+                        "/auth/logout",
+                        "/merchants/*/wheel",
+                        "/merchants/*/wheel/spin",
+                        "/swagger-ui/**",
+                        "/swagger-ui.html",
+                        "/v3/api-docs/**"
+                ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(exception -> exception
