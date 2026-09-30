@@ -1,4 +1,5 @@
-package com.fidely.backend.api.dtos.requests.loyalties.rewards;
+package com.fidely.backend.api.dtos.models.loyalties.rewards;
+
 
 import com.fidely.backend.domain.models.loyalties.Rewards.RoundingMethod;
 
