@@ -18,44 +18,102 @@ public class PointRuleService implements IPointRuleService {
 
     private final IPointRuleRepository pointRuleRepository;
 
+    /**
+     * Crée un nouveau service de gestion des règles de points.
+     *
+     * @param pointRuleRepository repository des règles de points
+     */
     public PointRuleService(
             IPointRuleRepository pointRuleRepository
     ) {
         this.pointRuleRepository = pointRuleRepository;
     }
 
+    /**
+     * Enregistre une nouvelle règle de points pour un marchand.
+     *
+     * <p>Lorsqu'une nouvelle règle active est créée, la règle active
+     * précédente est clôturée afin de conserver l'historique des règles.</p>
+     *
+     * @param pointRule règle de points à enregistrer
+     * @param merchantId identifiant du marchand
+     * @return règle enregistrée
+     */
     @Override
     public PointRule createPointRule(
             PointRule pointRule,
             UUID merchantId
     ) {
+        if (pointRule == null) {
+            throw new IllegalArgumentException(
+                    "Point rule cannot be null"
+            );
+        }
+
+        if (merchantId == null) {
+            throw new IllegalArgumentException(
+                    "Merchant id cannot be null"
+            );
+        }
+
+        if (pointRule.isActive()) {
+            closeCurrentActiveRule(
+                    merchantId,
+                    pointRule.getValidFrom()
+            );
+        }
+
         return pointRuleRepository.save(
                 pointRule,
                 merchantId
         );
     }
 
-    @Override
-    public Optional<PointRule> getPointRuleById(
-            UUID pointRuleId
-    ) {
-        return pointRuleRepository.findById(pointRuleId);
-    }
-
+    /**
+     * Récupère toutes les règles de points d'un marchand.
+     *
+     * @param merchantId identifiant du marchand
+     * @return règles de points du marchand
+     */
     @Override
     public List<PointRule> getPointRulesByMerchant(
             UUID merchantId
     ) {
+        if (merchantId == null) {
+            throw new IllegalArgumentException(
+                    "Merchant id cannot be null"
+            );
+        }
+
         return pointRuleRepository.findByMerchantId(
                 merchantId
         );
     }
 
+    /**
+     * Récupère la règle valide pour un marchand à une date donnée.
+     *
+     * @param merchantId identifiant du marchand
+     * @param date date à vérifier
+     * @return règle valide si elle existe
+     */
     @Override
     public Optional<PointRule> getValidPointRule(
             UUID merchantId,
             LocalDateTime date
     ) {
+        if (merchantId == null) {
+            throw new IllegalArgumentException(
+                    "Merchant id cannot be null"
+            );
+        }
+
+        if (date == null) {
+            throw new IllegalArgumentException(
+                    "Date cannot be null"
+            );
+        }
+
         return pointRuleRepository
                 .findByMerchantId(merchantId)
                 .stream()
@@ -63,8 +121,40 @@ public class PointRuleService implements IPointRuleService {
                 .findFirst();
     }
 
-    @Override
-    public void deletePointRule(UUID pointRuleId) {
-        pointRuleRepository.deleteById(pointRuleId);
+    /**
+     * Clôture la règle active actuelle d'un marchand.
+     *
+     * @param merchantId identifiant du marchand
+     * @param newValidFrom date de début de la nouvelle règle
+     */
+    private void closeCurrentActiveRule(
+            UUID merchantId,
+            LocalDateTime newValidFrom
+    ) {
+        pointRuleRepository
+                .findByMerchantId(merchantId)
+                .stream()
+                .filter(PointRule::isActive)
+                .filter(pointRule ->
+                        pointRule.getValidTo() == null
+                                || pointRule.getValidTo().isAfter(newValidFrom)
+                )
+                .findFirst()
+                .ifPresent(currentRule -> {
+                    PointRule closedRule = new PointRule(
+                            currentRule.getId(),
+                            currentRule.getPointsPerCurrencyUnit(),
+                            currentRule.getRoundingMethod(),
+                            false,
+                            currentRule.getValidFrom(),
+                            newValidFrom,
+                            currentRule.getCreatedAt()
+                    );
+
+                    pointRuleRepository.save(
+                            closedRule,
+                            merchantId
+                    );
+                });
     }
 }

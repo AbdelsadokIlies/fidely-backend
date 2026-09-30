@@ -11,11 +11,7 @@ import java.util.UUID;
  */
 public interface IPointRuleRepository {
 
-    Optional<PointRule> findById(UUID id);
-
     List<PointRule> findByMerchantId(UUID merchantId);
 
     PointRule save(PointRule pointRule, UUID merchantId);
-
-    void deleteById(UUID id);
 }

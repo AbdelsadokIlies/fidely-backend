@@ -1,6 +1,7 @@
-package com.fidely.backend.api.controllers;
+package com.fidely.backend.api.controllers.integrations;
 
 import com.fidely.backend.IntegrationTest;
+import com.fidely.backend.api.controllers.WheelController;
 import com.fidely.backend.application.port.out.IMerchantRepository;
 import com.fidely.backend.application.port.out.IUserRepository;
 import com.fidely.backend.application.port.out.IWheelRepository;

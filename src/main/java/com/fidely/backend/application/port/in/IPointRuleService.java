@@ -17,14 +17,10 @@ public interface IPointRuleService {
             UUID merchantId
     );
 
-    Optional<PointRule> getPointRuleById(UUID pointRuleId);
-
     List<PointRule> getPointRulesByMerchant(UUID merchantId);
 
     Optional<PointRule> getValidPointRule(
             UUID merchantId,
             LocalDateTime date
     );
-
-    void deletePointRule(UUID pointRuleId);
 }

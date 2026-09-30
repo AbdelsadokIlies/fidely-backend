@@ -6,6 +6,7 @@ import com.fidely.backend.domain.models.loyalties.Rewards.RoundingMethod;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -52,45 +53,6 @@ class PointRuleServiceTest {
 
         verify(pointRuleRepository)
                 .save(pointRule, merchantId);
-    }
-
-    @Test
-    void shouldGetPointRuleById() {
-        UUID pointRuleId = UUID.randomUUID();
-        PointRule pointRule = createPointRule(pointRuleId);
-
-        when(pointRuleRepository.findById(pointRuleId))
-                .thenReturn(Optional.of(pointRule));
-
-        Optional<PointRule> result =
-                pointRuleService.getPointRuleById(
-                        pointRuleId
-                );
-
-        assertThat(result)
-                .isPresent()
-                .containsSame(pointRule);
-
-        verify(pointRuleRepository)
-                .findById(pointRuleId);
-    }
-
-    @Test
-    void shouldReturnEmptyWhenPointRuleDoesNotExist() {
-        UUID pointRuleId = UUID.randomUUID();
-
-        when(pointRuleRepository.findById(pointRuleId))
-                .thenReturn(Optional.empty());
-
-        Optional<PointRule> result =
-                pointRuleService.getPointRuleById(
-                        pointRuleId
-                );
-
-        assertThat(result).isEmpty();
-
-        verify(pointRuleRepository)
-                .findById(pointRuleId);
     }
 
     @Test
@@ -229,30 +191,97 @@ class PointRuleServiceTest {
     }
 
     @Test
-    void shouldRejectNullDateWhenGettingValidPointRule() {
+    void shouldCreatePointRuleWhenNoActiveRuleExists() {
         UUID merchantId = UUID.randomUUID();
 
-        when(pointRuleRepository.findByMerchantId(merchantId))
-                .thenReturn(List.of(createPointRule()));
+        PointRule pointRule = createPointRule();
 
-        assertThatThrownBy(() ->
-                pointRuleService.getValidPointRule(
-                        merchantId,
-                        null
-                )
-        )
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Date cannot be null");
+        when(pointRuleRepository.findByMerchantId(merchantId))
+                .thenReturn(List.of());
+
+        when(pointRuleRepository.save(pointRule, merchantId))
+                .thenReturn(pointRule);
+
+        PointRule result = pointRuleService.createPointRule(
+                pointRule,
+                merchantId
+        );
+
+        assertThat(result).isSameAs(pointRule);
+
+        verify(pointRuleRepository)
+                .save(pointRule, merchantId);
     }
 
     @Test
-    void shouldDeletePointRule() {
-        UUID pointRuleId = UUID.randomUUID();
+    void shouldCloseCurrentActiveRuleBeforeCreatingNewRule() {
+        UUID merchantId = UUID.randomUUID();
 
-        pointRuleService.deletePointRule(pointRuleId);
+        LocalDateTime oldValidFrom =
+                LocalDateTime.of(2026, 1, 1, 0, 0);
 
-        verify(pointRuleRepository)
-                .deleteById(pointRuleId);
+        LocalDateTime newValidFrom =
+                LocalDateTime.of(2026, 6, 1, 0, 0);
+
+        PointRule currentRule = new PointRule(
+                UUID.randomUUID(),
+                new BigDecimal("1.0000"),
+                RoundingMethod.FLOOR,
+                true,
+                oldValidFrom,
+                LocalDateTime.of(2026, 12, 31, 23, 59),
+                oldValidFrom
+        );
+
+        PointRule newRule = new PointRule(
+                UUID.randomUUID(),
+                new BigDecimal("2.0000"),
+                RoundingMethod.ROUND,
+                true,
+                newValidFrom,
+                null,
+                newValidFrom
+        );
+
+        when(pointRuleRepository.findByMerchantId(merchantId))
+                .thenReturn(List.of(currentRule));
+
+        when(pointRuleRepository.save(
+                any(PointRule.class),
+                eq(merchantId)
+        )).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PointRule result = pointRuleService.createPointRule(
+                newRule,
+                merchantId
+        );
+
+        assertThat(result).isSameAs(newRule);
+
+        ArgumentCaptor<PointRule> captor =
+                ArgumentCaptor.forClass(PointRule.class);
+
+        verify(pointRuleRepository, times(2))
+                .save(captor.capture(), eq(merchantId));
+
+        List<PointRule> savedRules = captor.getAllValues();
+
+        PointRule closedRule = savedRules.get(0);
+
+        assertThat(closedRule.getId())
+                .isEqualTo(currentRule.getId());
+
+        assertThat(closedRule.isActive())
+                .isFalse();
+
+        assertThat(closedRule.getValidFrom())
+                .isEqualTo(oldValidFrom);
+
+        assertThat(closedRule.getValidTo())
+                .isEqualTo(newValidFrom);
+
+        assertThat(savedRules.get(1))
+                .isSameAs(newRule);
     }
 
     private PointRule createPointRule() {

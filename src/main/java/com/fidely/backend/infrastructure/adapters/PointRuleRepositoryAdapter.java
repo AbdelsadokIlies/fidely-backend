@@ -31,12 +31,6 @@ public class PointRuleRepositoryAdapter
     }
 
     @Override
-    public Optional<PointRule> findById(UUID id) {
-        return pointRuleRepository.findById(id)
-                .map(pointRuleMapper::toDomain);
-    }
-
-    @Override
     public List<PointRule> findByMerchantId(UUID merchantId) {
         return pointRuleRepository.findByMerchantId(merchantId)
                 .stream()
@@ -59,10 +53,5 @@ public class PointRuleRepositoryAdapter
                 pointRuleRepository.save(entity);
 
         return pointRuleMapper.toDomain(savedEntity);
-    }
-
-    @Override
-    public void deleteById(UUID id) {
-        pointRuleRepository.deleteById(id);
     }
 }
