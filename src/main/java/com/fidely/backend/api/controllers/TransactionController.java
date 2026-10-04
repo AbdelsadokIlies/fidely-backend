@@ -67,7 +67,6 @@ public class TransactionController {
      *
      * @param ticketService service applicatif de gestion des tickets
      * @param loyaltyService service applicatif de gestion des fidélités
-     * @param userRepository repository des utilisateurs
      * @param ocrTicketResponseMapper mapper des réponses OCR
      * @param ticketResponseMapper mapper des réponses de ticket
      * @param createTransactionRequestMapper mapper des requêtes
