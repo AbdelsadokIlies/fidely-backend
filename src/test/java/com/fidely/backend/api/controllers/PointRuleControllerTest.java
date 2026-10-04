@@ -1,6 +1,7 @@
 package com.fidely.backend.api.controllers;
 
 import com.fidely.backend.api.dtos.models.loyalties.rewards.PointRuleResponse;
+import com.fidely.backend.api.dtos.models.loyalties.rewards.UpdatePointRuleRequest;
 import com.fidely.backend.application.port.in.IPointRuleService;
 import com.fidely.backend.application.port.out.IUserRepository;
 import com.fidely.backend.domain.models.loyalties.Rewards.PointRule;
@@ -137,7 +138,7 @@ class PointRuleControllerTest {
                 LocalDateTime.of(2026, 1, 1, 0, 0);
 
         var request =
-                new com.fidely.backend.api.dtos.requests.loyalties.rewards.UpdatePointRuleRequest(
+                new UpdatePointRuleRequest(
                         new BigDecimal("1.5000"),
                         RoundingMethod.ROUND,
                         true,

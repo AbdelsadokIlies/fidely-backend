@@ -68,6 +68,30 @@ public interface ILoyaltyService {
 
     /**
 
+     * Recherche toutes les transactions de fidélité d'un client.
+     *
+     * <p>Les transactions sont récupérées à partir de l'ensemble
+     * des programmes de fidélité associés au client.</p>
+     *
+     * @param customerId identifiant du client
+     * @return liste des transactions du client
+     */
+    List<LoyaltyTransaction> getTransactionsByCustomer(UUID customerId);
+
+    /**
+
+     * Recherche toutes les transactions de fidélité d'un marchand.
+     *
+     * <p>Les transactions sont récupérées à partir de l'ensemble
+     * des programmes de fidélité associés au marchand.</p>
+     *
+     * @param merchantId identifiant du marchand
+     * @return liste des transactions du marchand
+     */
+    List<LoyaltyTransaction> getTransactionsByMerchant(UUID merchantId);
+
+    /**
+
      * Traite un ticket de caisse afin d'attribuer automatiquement
      * les points de fidélité correspondants.
      *

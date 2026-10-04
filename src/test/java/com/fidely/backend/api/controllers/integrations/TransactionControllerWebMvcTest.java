@@ -1,21 +1,23 @@
 package com.fidely.backend.api.controllers.integrations;
 
-import com.fidely.backend.IntegrationTest;
 import com.fidely.backend.api.controllers.TransactionController;
 import com.fidely.backend.api.dtos.mappers.tickets.OcrTicketResponseMapper;
 import com.fidely.backend.api.dtos.mappers.transactions.CreateTransactionRequestMapper;
 import com.fidely.backend.api.dtos.mappers.transactions.CreateTransactionResponseMapper;
+import com.fidely.backend.api.dtos.mappers.transactions.LoyaltyTransactionResponseMapper;
 import com.fidely.backend.api.dtos.mappers.transactions.ManualTransactionRequestMapper;
 import com.fidely.backend.api.dtos.mappers.transactions.TicketResponseMapper;
 import com.fidely.backend.api.dtos.models.tickets.OcrTicketResponse;
 import com.fidely.backend.api.dtos.models.tickets.TicketResponse;
 import com.fidely.backend.api.dtos.models.transactions.CreateTransactionRequest;
 import com.fidely.backend.api.dtos.models.transactions.CreateTransactionResponse;
+import com.fidely.backend.api.dtos.models.transactions.LoyaltyTransactionResponse;
 import com.fidely.backend.api.dtos.models.transactions.ManualTransactionRequest;
 import com.fidely.backend.application.port.in.ILoyaltyService;
 import com.fidely.backend.application.port.in.ITicketService;
 import com.fidely.backend.application.port.out.security.IAccessTokenManagement;
 import com.fidely.backend.domain.models.loyalties.Loyalty;
+import com.fidely.backend.domain.models.loyalties.LoyaltyTransaction;
 import com.fidely.backend.domain.models.tickets.Ticket;
 import com.fidely.backend.domain.models.tickets.TicketStatus;
 import jakarta.servlet.http.Cookie;
@@ -24,6 +26,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -31,11 +35,13 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -82,6 +88,9 @@ class TransactionControllerWebMvcTest {
 
     @MockitoBean
     private IAccessTokenManagement accessTokenManagement;
+
+    @MockitoBean
+    private LoyaltyTransactionResponseMapper loyaltyTransactionResponseMapper;
 
     /**
      * Vérifie que le endpoint OCR accepte une requête multipart
@@ -803,6 +812,144 @@ class TransactionControllerWebMvcTest {
                                 .cookie(accessTokenCookie())
                 )
                 .andExpect(status().isNotFound());
+    }
+
+    /**
+     * Vérifie que le endpoint retourne toutes les transactions
+     * du client authentifié.
+     *
+     * @throws Exception si l'exécution de la requête HTTP échoue
+     */
+    @Test
+    void shouldGetCustomerTransactions() throws Exception {
+        UUID customerId = UUID.randomUUID();
+
+        LoyaltyTransaction transaction = new LoyaltyTransaction(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                25,
+                "Achat",
+                LocalDateTime.of(2026, 6, 15, 12, 30)
+        );
+
+        LoyaltyTransactionResponse response =
+                new LoyaltyTransactionResponse(
+                        transaction.getId(),
+                        transaction.getLoyaltyId(),
+                        transaction.getTicketId(),
+                        transaction.getPoints(),
+                        transaction.getDescription(),
+                        transaction.getCreatedAt()
+                );
+
+        when(loyaltyService.getTransactionsByCustomer(customerId))
+                .thenReturn(List.of(transaction));
+
+        when(loyaltyTransactionResponseMapper.toResponse(transaction))
+                .thenReturn(response);
+
+        mockMvc.perform(
+                        get("/transactions/customers/me")
+                                .principal(createAuthentication(customerId))
+                )
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_JSON_VALUE
+                ))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id")
+                        .value(transaction.getId().toString()))
+                .andExpect(jsonPath("$[0].loyaltyId")
+                        .value(transaction.getLoyaltyId().toString()))
+                .andExpect(jsonPath("$[0].ticketId")
+                        .value(transaction.getTicketId().toString()))
+                .andExpect(jsonPath("$[0].points")
+                        .value(25))
+                .andExpect(jsonPath("$[0].description")
+                        .value("Achat"));
+
+        verify(loyaltyService)
+                .getTransactionsByCustomer(customerId);
+
+        verify(loyaltyTransactionResponseMapper)
+                .toResponse(transaction);
+    }
+
+    /**
+     * Vérifie que le endpoint retourne toutes les transactions
+     * du marchand authentifié.
+     *
+     * @throws Exception si l'exécution de la requête HTTP échoue
+     */
+    @Test
+    void shouldGetMerchantTransactions() throws Exception {
+        UUID merchantId = UUID.randomUUID();
+
+        LoyaltyTransaction transaction = new LoyaltyTransaction(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                30,
+                "Achat",
+                LocalDateTime.of(2026, 6, 15, 14, 30)
+        );
+
+        LoyaltyTransactionResponse response =
+                new LoyaltyTransactionResponse(
+                        transaction.getId(),
+                        transaction.getLoyaltyId(),
+                        transaction.getTicketId(),
+                        transaction.getPoints(),
+                        transaction.getDescription(),
+                        transaction.getCreatedAt()
+                );
+
+        when(loyaltyService.getTransactionsByMerchant(merchantId))
+                .thenReturn(List.of(transaction));
+
+        when(loyaltyTransactionResponseMapper.toResponse(transaction))
+                .thenReturn(response);
+
+        mockMvc.perform(
+                        get("/transactions/merchants/me")
+                                .principal(createAuthentication(merchantId))
+                )
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.APPLICATION_JSON_VALUE
+                ))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id")
+                        .value(transaction.getId().toString()))
+                .andExpect(jsonPath("$[0].loyaltyId")
+                        .value(transaction.getLoyaltyId().toString()))
+                .andExpect(jsonPath("$[0].ticketId")
+                        .value(transaction.getTicketId().toString()))
+                .andExpect(jsonPath("$[0].points")
+                        .value(30))
+                .andExpect(jsonPath("$[0].description")
+                        .value("Achat"));
+
+        verify(loyaltyService)
+                .getTransactionsByMerchant(merchantId);
+
+        verify(loyaltyTransactionResponseMapper)
+                .toResponse(transaction);
+    }
+
+    /**
+     * Crée une authentification simulée contenant l'identifiant
+     * utilisateur attendu par le controller.
+     *
+     * @param userId identifiant de l'utilisateur
+     * @return authentification simulée
+     */
+    private Authentication createAuthentication(UUID userId) {
+        return new UsernamePasswordAuthenticationToken(
+                userId,
+                null
+        );
     }
 
     /**

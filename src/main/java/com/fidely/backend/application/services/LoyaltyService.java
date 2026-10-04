@@ -97,7 +97,6 @@ public class LoyaltyService implements ILoyaltyService {
      * @param loyaltyId identifiant du programme de fidélité
      * @return le programme de fidélité s'il existe, sinon un Optional vide
      */
-
     @Override
     public Optional<Loyalty> getLoyaltyById(UUID loyaltyId) {
         return loyaltyRepository.findById(loyaltyId);
@@ -144,6 +143,50 @@ public class LoyaltyService implements ILoyaltyService {
     @Override
     public List<Loyalty> getLoyaltiesByMerchant(UUID merchantId) {
         return loyaltyRepository.findByMerchantId(merchantId);
+    }
+
+    /**
+
+     * Récupère toutes les transactions de fidélité d'un client.
+     *
+     * <p>Les programmes de fidélité du client sont d'abord récupérés,
+     * puis les transactions de chacun de ces programmes sont agrégées.</p>
+     *
+     * @param customerId identifiant du client
+     * @return liste des transactions du client
+     */
+    @Override
+    public List<LoyaltyTransaction> getTransactionsByCustomer(
+            UUID customerId
+    ) {
+        return getLoyaltiesByCustomer(customerId)
+                .stream()
+                .flatMap(loyalty ->
+                        getTransactionsByLoyalty(loyalty.getId()).stream()
+                )
+                .toList();
+    }
+
+    /**
+
+     * Récupère toutes les transactions de fidélité d'un marchand.
+     *
+     * <p>Les programmes de fidélité du marchand sont d'abord récupérés,
+     * puis les transactions de chacun de ces programmes sont agrégées.</p>
+     *
+     * @param merchantId identifiant du marchand
+     * @return liste des transactions du marchand
+     */
+    @Override
+    public List<LoyaltyTransaction> getTransactionsByMerchant(
+            UUID merchantId
+    ) {
+        return getLoyaltiesByMerchant(merchantId)
+                .stream()
+                .flatMap(loyalty ->
+                        getTransactionsByLoyalty(loyalty.getId()).stream()
+                )
+                .toList();
     }
 
     /**

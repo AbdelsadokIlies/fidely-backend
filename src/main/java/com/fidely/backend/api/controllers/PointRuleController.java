@@ -1,7 +1,7 @@
 package com.fidely.backend.api.controllers;
 
 import com.fidely.backend.api.dtos.models.loyalties.rewards.PointRuleResponse;
-import com.fidely.backend.api.dtos.requests.loyalties.rewards.UpdatePointRuleRequest;
+import com.fidely.backend.api.dtos.models.loyalties.rewards.UpdatePointRuleRequest;
 import com.fidely.backend.application.port.in.IPointRuleService;
 import com.fidely.backend.application.port.out.IUserRepository;
 import com.fidely.backend.domain.models.loyalties.Rewards.PointRule;

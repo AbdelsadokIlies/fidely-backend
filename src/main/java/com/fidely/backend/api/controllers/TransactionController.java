@@ -4,20 +4,24 @@ import com.fidely.backend.api.dtos.mappers.tickets.OcrTicketRequest;
 import com.fidely.backend.api.dtos.mappers.tickets.OcrTicketResponseMapper;
 import com.fidely.backend.api.dtos.mappers.transactions.CreateTransactionRequestMapper;
 import com.fidely.backend.api.dtos.mappers.transactions.CreateTransactionResponseMapper;
+import com.fidely.backend.api.dtos.mappers.transactions.LoyaltyTransactionResponseMapper;
 import com.fidely.backend.api.dtos.mappers.transactions.ManualTransactionRequestMapper;
 import com.fidely.backend.api.dtos.mappers.transactions.TicketResponseMapper;
 import com.fidely.backend.api.dtos.models.tickets.OcrTicketResponse;
 import com.fidely.backend.api.dtos.models.tickets.TicketResponse;
 import com.fidely.backend.api.dtos.models.transactions.CreateTransactionRequest;
 import com.fidely.backend.api.dtos.models.transactions.CreateTransactionResponse;
+import com.fidely.backend.api.dtos.models.transactions.LoyaltyTransactionResponse;
 import com.fidely.backend.api.dtos.models.transactions.ManualTransactionRequest;
 import com.fidely.backend.application.port.in.ILoyaltyService;
 import com.fidely.backend.application.port.in.ITicketService;
+import com.fidely.backend.application.port.out.IUserRepository;
 import com.fidely.backend.domain.models.loyalties.Loyalty;
 import com.fidely.backend.domain.models.tickets.Ticket;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,16 +30,19 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
+
  * Controller REST responsable de la gestion des transactions liées
  * aux tickets de caisse et des transactions manuelles.
  *
  * <p>Ce controller expose les endpoints permettant notamment
  * d'extraire les données d'un ticket par OCR, de créer une transaction
  * de fidélité à partir des données extraites, de récupérer un ticket
- * persisté et d'enregistrer directement une transaction manuelle.</p>
+ * persisté, d'enregistrer directement une transaction manuelle et
+ * de consulter les transactions d'un client ou d'un marchand.</p>
  *
  * <p>La logique métier est déléguée aux ports d'entrée applicatifs.
  * Le controller se limite à gérer les requêtes HTTP, appeler les
@@ -51,21 +58,35 @@ public class TransactionController {
     private final TicketResponseMapper ticketResponseMapper;
     private final CreateTransactionRequestMapper createTransactionRequestMapper;
     private final CreateTransactionResponseMapper createTransactionResponseMapper;
+    private final LoyaltyTransactionResponseMapper loyaltyTransactionResponseMapper;
     private final ManualTransactionRequestMapper manualTransactionRequestMapper;
 
     /**
+
      * Construit le controller des transactions.
      *
      * @param ticketService service applicatif de gestion des tickets
      * @param loyaltyService service applicatif de gestion des fidélités
+     * @param userRepository repository des utilisateurs
      * @param ocrTicketResponseMapper mapper des réponses OCR
      * @param ticketResponseMapper mapper des réponses de ticket
      * @param createTransactionRequestMapper mapper des requêtes
-     *                                   de création de transaction
+     * ```
+    de création de transaction
+    ```
      * @param createTransactionResponseMapper mapper des réponses
-     *                                    de création de transaction
+     * ```
+    de création de transaction
+    ```
+     * @param loyaltyTransactionResponseMapper mapper des transactions
+     * ```
+    de fidélité
+    ```
      * @param manualTransactionRequestMapper mapper des requêtes
-     *                                      de transaction manuelle
+     * ```
+    de transaction manuelle
+    ```
+
      */
     public TransactionController(
             ITicketService ticketService,
@@ -74,6 +95,7 @@ public class TransactionController {
             TicketResponseMapper ticketResponseMapper,
             CreateTransactionRequestMapper createTransactionRequestMapper,
             CreateTransactionResponseMapper createTransactionResponseMapper,
+            LoyaltyTransactionResponseMapper loyaltyTransactionResponseMapper,
             ManualTransactionRequestMapper manualTransactionRequestMapper
     ) {
         this.ticketService = ticketService;
@@ -82,10 +104,13 @@ public class TransactionController {
         this.ticketResponseMapper = ticketResponseMapper;
         this.createTransactionRequestMapper = createTransactionRequestMapper;
         this.createTransactionResponseMapper = createTransactionResponseMapper;
+        this.loyaltyTransactionResponseMapper =
+                loyaltyTransactionResponseMapper;
         this.manualTransactionRequestMapper = manualTransactionRequestMapper;
     }
 
     /**
+
      * Extrait les données d'un ticket de caisse à partir d'une image.
      *
      * <p>Le ticket créé par cette opération est temporaire et n'est pas
@@ -93,7 +118,9 @@ public class TransactionController {
      * le workflow de création de transaction.</p>
      *
      * @param request requête multipart contenant les identifiants
-     *                du marchand et du client ainsi que l'image du ticket
+     * ```
+    du marchand et du client ainsi que l'image du ticket
+    ```
      * @return réponse contenant les données extraites du ticket
      */
     @PostMapping(
@@ -128,6 +155,7 @@ public class TransactionController {
     }
 
     /**
+
      * Récupère un ticket de caisse persisté à partir de son identifiant.
      *
      * <p>Si aucun ticket ne correspond à l'identifiant fourni,
@@ -150,6 +178,7 @@ public class TransactionController {
     }
 
     /**
+
      * Crée une transaction de fidélité à partir des données
      * d'un ticket préalablement extrait par OCR.
      *
@@ -159,7 +188,9 @@ public class TransactionController {
      * les éléments nécessaires à la transaction.</p>
      *
      * @param request requête contenant l'identifiant de fidélité
-     *                et les données du ticket
+     * ```
+    et les données du ticket
+    ```
      * @return fidélité mise à jour après attribution des points
      */
     @PostMapping(
@@ -182,6 +213,7 @@ public class TransactionController {
     }
 
     /**
+
      * Enregistre manuellement une transaction de fidélité.
      *
      * <p>Cette opération est utilisée lorsqu'un marchand souhaite
@@ -193,8 +225,12 @@ public class TransactionController {
      * et enregistre la transaction.</p>
      *
      * @param request requête contenant l'identifiant de fidélité,
-     *                les identifiants du marchand et du client ainsi
-     *                que le montant de la transaction
+     * ```
+    les identifiants du marchand et du client ainsi
+    ```
+     * ```
+    que le montant de la transaction
+    ```
      * @return fidélité mise à jour après attribution des points
      */
     @PostMapping(
@@ -216,6 +252,50 @@ public class TransactionController {
 
         CreateTransactionResponse response =
                 createTransactionResponseMapper.toResponse(loyalty);
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+
+     * Récupère toutes les transactions de fidélité du client connecté.
+     *
+     * @param authentication authentification du client connecté
+     * @return liste des transactions de fidélité du client
+     */
+    @GetMapping("/customers/me")
+    public ResponseEntity<List<LoyaltyTransactionResponse>> getCustomerTransactions(
+            Authentication authentication
+    ) {
+        UUID userId = (UUID) authentication.getPrincipal();
+
+        List<LoyaltyTransactionResponse> response =
+                loyaltyService.getTransactionsByCustomer(userId)
+                        .stream()
+                        .map(loyaltyTransactionResponseMapper::toResponse)
+                        .toList();
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+
+     * Récupère toutes les transactions de fidélité du marchand connecté.
+     *
+     * @param authentication authentification du marchand connecté
+     * @return liste des transactions de fidélité du marchand
+     */
+    @GetMapping("/merchants/me")
+    public ResponseEntity<List<LoyaltyTransactionResponse>> getMerchantTransactions(
+            Authentication authentication
+    ) {
+        UUID userId = (UUID) authentication.getPrincipal();
+
+        List<LoyaltyTransactionResponse> response =
+                loyaltyService.getTransactionsByMerchant(userId)
+                        .stream()
+                        .map(loyaltyTransactionResponseMapper::toResponse)
+                        .toList();
 
         return ResponseEntity.ok(response);
     }

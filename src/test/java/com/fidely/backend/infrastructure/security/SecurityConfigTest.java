@@ -4,6 +4,7 @@ import com.fidely.backend.api.controllers.TransactionController;
 import com.fidely.backend.api.dtos.mappers.tickets.OcrTicketResponseMapper;
 import com.fidely.backend.api.dtos.mappers.transactions.CreateTransactionRequestMapper;
 import com.fidely.backend.api.dtos.mappers.transactions.CreateTransactionResponseMapper;
+import com.fidely.backend.api.dtos.mappers.transactions.LoyaltyTransactionResponseMapper;
 import com.fidely.backend.api.dtos.mappers.transactions.ManualTransactionRequestMapper;
 import com.fidely.backend.api.dtos.mappers.transactions.TicketResponseMapper;
 import com.fidely.backend.api.dtos.models.tickets.TicketResponse;
@@ -11,14 +12,13 @@ import com.fidely.backend.application.port.in.ILoyaltyService;
 import com.fidely.backend.application.port.in.ITicketService;
 import com.fidely.backend.application.port.out.security.IAccessTokenManagement;
 import com.fidely.backend.domain.models.tickets.Ticket;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import jakarta.servlet.http.Cookie;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -61,6 +61,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private CreateTransactionResponseMapper createTransactionResponseMapper;
+
+    @MockitoBean
+    private LoyaltyTransactionResponseMapper loyaltyTransactionResponseMapper;
 
     @MockitoBean
     private ManualTransactionRequestMapper manualTransactionRequestMapper;
