@@ -57,10 +57,29 @@ public interface IWheelService {
      * Enregistre un lot pour le marchand associé au manager.
      *
      * @param userId identifiant du manager
-     * @param prize lot à enregistrer
+     * @param label nom du lot
+     * @param probabilityWeight taux de chance
      * @return lot enregistré
      */
-    WheelPrize savePrizeForManager(UUID userId, WheelPrize prize);
+    WheelPrize savePrizeForManager(UUID userId,
+                                   String label,
+                                   int probabilityWeight);
+
+    /**
+     * Modifie un lot appartenant à la roue du marchand connecté.
+     *
+     * @param userId identifiant de l'utilisateur connecté
+     * @param prizeId identifiant du lot à modifier
+     * @param label nouveau libellé du lot
+     * @param probabilityWeight nouveau poids utilisé pour le tirage aléatoire
+     * @return le lot modifié et sauvegardé
+     */
+    WheelPrize updatePrizeForManager(
+            UUID userId,
+            UUID prizeId,
+            String label,
+            int probabilityWeight
+    );
 
     /**
      * Supprime un lot du marchand associé au manager.
@@ -73,7 +92,8 @@ public interface IWheelService {
     /**
      * Effectue un tirage aléatoire sur une roue.
      *
-     * @param wheelId identifiant de la roue * @return lot sélectionné
+     * @param merchantId identifiant du commerce
+     * @return lot sélectionné
      */
-    WheelPrize spin(UUID wheelId);
+    WheelPrize spin(UUID merchantId);
 }

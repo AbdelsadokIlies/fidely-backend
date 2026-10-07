@@ -32,9 +32,6 @@ class PointRuleControllerTest {
     private IPointRuleService pointRuleService;
 
     @Mock
-    private IUserRepository userRepository;
-
-    @Mock
     private Authentication authentication;
 
     private PointRuleController controller;
@@ -46,30 +43,14 @@ class PointRuleControllerTest {
     @BeforeEach
     void setUp() {
         controller = new PointRuleController(
-                pointRuleService,
-                userRepository
+                pointRuleService
         );
 
         userId = UUID.randomUUID();
         merchantId = UUID.randomUUID();
 
-        merchantManager = new MerchantManager(
-                userId,
-                merchantId,
-                "manager@fidely.com",
-                "John",
-                "Doe",
-                true,
-                true,
-                LocalDateTime.now(),
-                LocalDateTime.now()
-        );
-
         when(authentication.getPrincipal())
                 .thenReturn(userId);
-
-        when(userRepository.findById(userId))
-                .thenReturn(Optional.of(merchantManager));
     }
 
     @Test
@@ -157,8 +138,13 @@ class PointRuleControllerTest {
         );
 
         when(pointRuleService.createPointRule(
-                any(PointRule.class),
-                eq(merchantId)
+                eq(savedPointRule.getId()),
+                any(BigDecimal.class),
+                any(RoundingMethod.class),
+                any(boolean.class),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class),
+                any(LocalDateTime.class)
         )).thenReturn(savedPointRule);
 
         var response = controller.updatePointRule(
@@ -194,8 +180,13 @@ class PointRuleControllerTest {
 
         verify(pointRuleService)
                 .createPointRule(
-                        any(PointRule.class),
-                        eq(merchantId)
+                        eq(savedPointRule.getId()),
+                        any(BigDecimal.class),
+                        any(RoundingMethod.class),
+                        any(boolean.class),
+                        any(LocalDateTime.class),
+                        any(LocalDateTime.class),
+                        any(LocalDateTime.class)
                 );
     }
 

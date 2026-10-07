@@ -21,7 +21,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -310,13 +314,13 @@ class WheelControllerWebMvcTest extends IntegrationTest {
                                 )
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
-                        {
-                            "name": "Nouvelle roue",
-                            "active": false,
-                            "minIntervalMinutes": 120,
-                            "requiresValidatedPurchase": false
-                        }
-                        """)
+                                        {
+                                            "name": "Nouvelle roue",
+                                            "active": false,
+                                            "minIntervalMinutes": 120,
+                                            "requiresValidatedPurchase": false
+                                        }
+                                        """)
                 )
                 .andExpect(status().isOk())
                 .andExpect(
@@ -400,13 +404,13 @@ class WheelControllerWebMvcTest extends IntegrationTest {
                                 )
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
-                        {
-                            "name": "Nouvelle roue",
-                            "active": true,
-                            "minIntervalMinutes": 15,
-                            "requiresValidatedPurchase": true
-                        }
-                        """)
+                                        {
+                                            "name": "Nouvelle roue",
+                                            "active": true,
+                                            "minIntervalMinutes": 15,
+                                            "requiresValidatedPurchase": true
+                                        }
+                                        """)
                 )
                 .andExpect(status().isOk())
                 .andExpect(
@@ -497,14 +501,24 @@ class WheelControllerWebMvcTest extends IntegrationTest {
                 .andExpect(
                         jsonPath("$.result").value(
                                 org.hamcrest.Matchers.anyOf(
-                                        org.hamcrest.Matchers.equalTo(firstPrize.getLabel()),
-                                        org.hamcrest.Matchers.equalTo(secondPrize.getLabel())
+                                        org.hamcrest.Matchers.equalTo(
+                                                firstPrize.getLabel()
+                                        ),
+                                        org.hamcrest.Matchers.equalTo(
+                                                secondPrize.getLabel()
+                                        )
                                 )
                         )
                 )
-                .andExpect(jsonPath("$.merchantId").doesNotExist())
-                .andExpect(jsonPath("$.wheelId").doesNotExist())
-                .andExpect(jsonPath("$.probabilityWeight").doesNotExist());
+                .andExpect(
+                        jsonPath("$.merchantId").doesNotExist()
+                )
+                .andExpect(
+                        jsonPath("$.wheelId").doesNotExist()
+                )
+                .andExpect(
+                        jsonPath("$.probabilityWeight").doesNotExist()
+                );
     }
 
     /**
@@ -567,19 +581,33 @@ class WheelControllerWebMvcTest extends IntegrationTest {
 
         mockMvc.perform(
                         post("/merchants/me/wheel/prizes")
-                                .cookie(new Cookie("fidely_access_token", accessToken))
+                                .cookie(
+                                        new Cookie(
+                                                "fidely_access_token",
+                                                accessToken
+                                        )
+                                )
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
-                {
-                    "label": "10% de réduction",
-                    "probabilityWeight": 50
-                }
-                """)
+                                        {
+                                            "label": "10% de réduction",
+                                            "probabilityWeight": 50
+                                        }
+                                        """)
                 )
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.label").value("10% de réduction"))
-                .andExpect(jsonPath("$.probabilityWeight").value(50))
-                .andExpect(jsonPath("$.wheelId").value(wheelId.toString()));
+                .andExpect(
+                        jsonPath("$.label")
+                                .value("10% de réduction")
+                )
+                .andExpect(
+                        jsonPath("$.probabilityWeight")
+                                .value(50)
+                )
+                .andExpect(
+                        jsonPath("$.wheelId")
+                                .value(wheelId.toString())
+                );
     }
 
     /**
@@ -653,20 +681,41 @@ class WheelControllerWebMvcTest extends IntegrationTest {
         );
 
         mockMvc.perform(
-                        patch("/merchants/me/wheel/prizes/{prizeId}", prizeId)
-                                .cookie(new Cookie("fidely_access_token", accessToken))
+                        patch(
+                                "/merchants/me/wheel/prizes/{prizeId}",
+                                prizeId
+                        )
+                                .cookie(
+                                        new Cookie(
+                                                "fidely_access_token",
+                                                accessToken
+                                        )
+                                )
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
-                {
-                    "label": "20% de réduction",
-                    "probabilityWeight": 80
-                }
-                """)
+                                        {
+                                            "label": "20% de réduction",
+                                            "probabilityWeight": 80
+                                        }
+                                        """)
                 )
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(prizeId.toString()))
-                .andExpect(jsonPath("$.label").value("20% de réduction"))
-                .andExpect(jsonPath("$.probabilityWeight").value(80));
+                .andExpect(
+                        jsonPath("$.id")
+                                .value(prizeId.toString())
+                )
+                .andExpect(
+                        jsonPath("$.label")
+                                .value("20% de réduction")
+                )
+                .andExpect(
+                        jsonPath("$.probabilityWeight")
+                                .value(80)
+                )
+                .andExpect(
+                        jsonPath("$.wheelId")
+                                .value(wheelId.toString())
+                );
     }
 
     /**
@@ -740,8 +789,16 @@ class WheelControllerWebMvcTest extends IntegrationTest {
         );
 
         mockMvc.perform(
-                        delete("/merchants/me/wheel/prizes/{prizeId}", prizeId)
-                                .cookie(new Cookie("fidely_access_token", accessToken))
+                        delete(
+                                "/merchants/me/wheel/prizes/{prizeId}",
+                                prizeId
+                        )
+                                .cookie(
+                                        new Cookie(
+                                                "fidely_access_token",
+                                                accessToken
+                                        )
+                                )
                 )
                 .andExpect(status().isNoContent());
     }

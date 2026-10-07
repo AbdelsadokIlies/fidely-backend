@@ -8,6 +8,7 @@ import com.fidely.backend.application.port.in.IMerchantService;
 import com.fidely.backend.domain.models.Merchants.Merchant;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,6 +33,7 @@ public class MerchantController {
             path = "/me",
             produces = MediaType.APPLICATION_JSON_VALUE
     )
+    @PreAuthorize("hasRole('MERCHANT_MANAGER')")
     public ResponseEntity<MerchantResponse> getCurrentMerchant(
             Authentication authentication
     ) {
@@ -49,6 +51,7 @@ public class MerchantController {
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE
     )
+    @PreAuthorize("hasRole('MERCHANT_MANAGER')")
     public ResponseEntity<MerchantResponse> updateCurrentMerchant(
             Authentication authentication,
             @RequestBody UpdateMerchantRequest request
@@ -73,6 +76,7 @@ public class MerchantController {
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE
     )
+    @PreAuthorize("hasRole('MERCHANT_MANAGER')")
     public ResponseEntity<MerchantResponse> updateCurrentMerchantBranding(
             Authentication authentication,
             @RequestBody UpdateMerchantBrandingRequest request

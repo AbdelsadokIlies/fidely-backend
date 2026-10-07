@@ -1,4 +1,4 @@
-package com.fidely.backend.infrastructure;
+package com.fidely.backend.infrastructure.SpringSataRepositories;
 
 import com.fidely.backend.IntegrationTest;
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataPointRuleRepository;
@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

@@ -277,7 +277,6 @@ public class AuthService implements IAuthService {
     ) {
         User user = authenticate(email, password);
 
-  
         String role = determineRole(user);
 
         String accessToken = accessTokenGenerator.generate(

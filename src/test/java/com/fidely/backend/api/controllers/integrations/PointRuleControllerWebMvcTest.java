@@ -2,10 +2,8 @@ package com.fidely.backend.api.controllers.integrations;
 
 import com.fidely.backend.api.controllers.PointRuleController;
 import com.fidely.backend.application.port.in.IPointRuleService;
-import com.fidely.backend.application.port.out.IUserRepository;
 import com.fidely.backend.domain.models.loyalties.Rewards.PointRule;
 import com.fidely.backend.domain.models.loyalties.Rewards.RoundingMethod;
-import com.fidely.backend.domain.models.users.MerchantManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -17,7 +15,6 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -42,28 +39,16 @@ class PointRuleControllerWebMvcTest {
     @MockitoBean
     private IPointRuleService pointRuleService;
 
-    @MockitoBean
-    private IUserRepository userRepository;
-
     @Test
     void shouldGetCurrentPointRule() throws Exception {
         UUID userId = UUID.randomUUID();
-        UUID merchantId = UUID.randomUUID();
-
-        when(userRepository.findById(userId))
-                .thenReturn(Optional.of(
-                        createMerchantManager(
-                                userId,
-                                merchantId
-                        )
-                ));
 
         PointRule pointRule = createPointRule();
 
         when(pointRuleService.getValidPointRule(
-                eq(merchantId),
+                eq(userId),
                 any(LocalDateTime.class)
-        )).thenReturn(Optional.of(pointRule));
+        )).thenReturn(java.util.Optional.of(pointRule));
 
         mockMvc.perform(
                         get("/merchants/me/points-rule")
@@ -91,20 +76,11 @@ class PointRuleControllerWebMvcTest {
     void shouldReturnNotFoundWhenNoCurrentPointRuleExists()
             throws Exception {
         UUID userId = UUID.randomUUID();
-        UUID merchantId = UUID.randomUUID();
-
-        when(userRepository.findById(userId))
-                .thenReturn(Optional.of(
-                        createMerchantManager(
-                                userId,
-                                merchantId
-                        )
-                ));
 
         when(pointRuleService.getValidPointRule(
-                eq(merchantId),
+                eq(userId),
                 any(LocalDateTime.class)
-        )).thenReturn(Optional.empty());
+        )).thenReturn(java.util.Optional.empty());
 
         mockMvc.perform(
                         get("/merchants/me/points-rule")
@@ -116,16 +92,7 @@ class PointRuleControllerWebMvcTest {
     @Test
     void shouldCreateNewPointRule() throws Exception {
         UUID userId = UUID.randomUUID();
-        UUID merchantId = UUID.randomUUID();
         UUID pointRuleId = UUID.randomUUID();
-
-        when(userRepository.findById(userId))
-                .thenReturn(Optional.of(
-                        createMerchantManager(
-                                userId,
-                                merchantId
-                        )
-                ));
 
         LocalDateTime validFrom =
                 LocalDateTime.of(2026, 6, 1, 0, 0);
@@ -141,8 +108,13 @@ class PointRuleControllerWebMvcTest {
         );
 
         when(pointRuleService.createPointRule(
-                any(PointRule.class),
-                eq(merchantId)
+                eq(userId),
+                eq(new BigDecimal("2.0000")),
+                eq(RoundingMethod.ROUND),
+                eq(true),
+                eq(validFrom),
+                eq(null),
+                any(LocalDateTime.class)
         )).thenReturn(savedPointRule);
 
         mockMvc.perform(
@@ -178,23 +150,19 @@ class PointRuleControllerWebMvcTest {
 
         verify(pointRuleService)
                 .createPointRule(
-                        any(PointRule.class),
-                        eq(merchantId)
+                        eq(userId),
+                        eq(new BigDecimal("2.0000")),
+                        eq(RoundingMethod.ROUND),
+                        eq(true),
+                        eq(validFrom),
+                        eq(null),
+                        any(LocalDateTime.class)
                 );
     }
 
     @Test
     void shouldRejectInvalidPointRuleRequest() throws Exception {
         UUID userId = UUID.randomUUID();
-        UUID merchantId = UUID.randomUUID();
-
-        when(userRepository.findById(userId))
-                .thenReturn(Optional.of(
-                        createMerchantManager(
-                                userId,
-                                merchantId
-                        )
-                ));
 
         mockMvc.perform(
                         put("/merchants/me/points-rule")
@@ -231,32 +199,6 @@ class PointRuleControllerWebMvcTest {
         return new UsernamePasswordAuthenticationToken(
                 userId,
                 null
-        );
-    }
-
-    /**
-     * Crée un gestionnaire de marchand utilisé dans les tests.
-     *
-     * @param userId identifiant de l'utilisateur
-     * @param merchantId identifiant du marchand
-     * @return gestionnaire de marchand
-     */
-    private MerchantManager createMerchantManager(
-            UUID userId,
-            UUID merchantId
-    ) {
-        LocalDateTime now = LocalDateTime.now();
-
-        return new MerchantManager(
-                userId,
-                merchantId,
-                "manager-" + userId + "@fidely.com",
-                "John",
-                "Doe",
-                true,
-                true,
-                now,
-                now
         );
     }
 

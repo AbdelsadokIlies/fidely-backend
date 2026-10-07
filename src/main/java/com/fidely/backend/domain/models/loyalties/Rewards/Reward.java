@@ -13,7 +13,7 @@ import java.util.UUID;
 public class Reward {
 
     private final UUID id;
-    private final UUID merchantId;
+    private UUID merchantId;
     private final String name;
     private final String description;
     private final int costPoints;
@@ -69,6 +69,8 @@ public class Reward {
     public UUID getMerchantId() {
         return merchantId;
     }
+
+    public void setMerchantId(UUID merchantId){this.merchantId = merchantId;}
 
     public String getName() {
         return name;

@@ -5,6 +5,7 @@ import com.fidely.backend.application.port.in.IWheelService;
 import com.fidely.backend.domain.models.wheels.Wheel;
 import com.fidely.backend.domain.models.wheels.WheelPrize;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -52,6 +53,7 @@ public class WheelController {
      * @return configuration de la roue
      */
     @GetMapping("/me/wheel")
+    @PreAuthorize("hasRole('MERCHANT_MANAGER')")
     public ResponseEntity<WheelResponse> getCurrentMerchantWheel(
             Authentication authentication
     ) {
@@ -70,6 +72,7 @@ public class WheelController {
      * @return roue enregistrée
      */
     @PutMapping("/me/wheel")
+    @PreAuthorize("hasRole('MERCHANT_MANAGER')")
     public ResponseEntity<WheelResponse> updateCurrentMerchantWheel(
             @RequestBody UpdateWheelRequest request,
             Authentication authentication
@@ -95,25 +98,20 @@ public class WheelController {
      * @return le lot créé
      */
     @PostMapping("/me/wheel/prizes")
+    @PreAuthorize("hasRole('MERCHANT_MANAGER')")
     public ResponseEntity<WheelPrizeResponse> createPrize(
             @RequestBody UpdateWheelPrizeRequest request,
             Authentication authentication
     ) {
         UUID userId = (UUID) authentication.getPrincipal();
 
-        Wheel wheel = wheelService.getWheelForManager(userId);
-
-        WheelPrize prize = new WheelPrize(
-                UUID.randomUUID(),
-                wheel.getId(),
+        WheelPrize prize = wheelService.savePrizeForManager(
+                userId,
                 request.label(),
-                request.probabilityWeight(),
-                LocalDateTime.now()
+                request.probabilityWeight()
         );
 
-        WheelPrize savedPrize = wheelService.savePrizeForManager(userId, prize);
-
-        return ResponseEntity.ok(toPrizeResponse(savedPrize));
+        return ResponseEntity.ok(toPrizeResponse(prize));
     }
 
     /**
@@ -125,6 +123,7 @@ public class WheelController {
      * @return le lot modifié
      */
     @PatchMapping("/me/wheel/prizes/{prizeId}")
+    @PreAuthorize("hasRole('MERCHANT_MANAGER')")
     public ResponseEntity<WheelPrizeResponse> updatePrize(
             @PathVariable UUID prizeId,
             @RequestBody UpdateWheelPrizeRequest request,
@@ -132,28 +131,14 @@ public class WheelController {
     ) {
         UUID userId = (UUID) authentication.getPrincipal();
 
-        Wheel wheel = wheelService.getWheelForManager(userId);
-
-        WheelPrize existingPrize = wheelService.getPrizes(wheel.getId())
-                .stream()
-                .filter(prize -> prize.getId().equals(prizeId))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Prize not found"));
-
-        WheelPrize updatedPrize = new WheelPrize(
-                existingPrize.getId(),
-                existingPrize.getWheelId(),
-                request.label(),
-                request.probabilityWeight(),
-                existingPrize.getCreatedAt()
-        );
-
-        WheelPrize savedPrize = wheelService.savePrizeForManager(
+        WheelPrize updatedPrize = wheelService.updatePrizeForManager(
                 userId,
-                updatedPrize
+                prizeId,
+                request.label(),
+                request.probabilityWeight()
         );
 
-        return ResponseEntity.ok(toPrizeResponse(savedPrize));
+        return ResponseEntity.ok(toPrizeResponse(updatedPrize));
     }
 
     /**
@@ -164,6 +149,7 @@ public class WheelController {
      * @return une réponse sans contenu
      */
     @DeleteMapping("/me/wheel/prizes/{prizeId}")
+    @PreAuthorize("hasRole('MERCHANT_MANAGER')")
     public ResponseEntity<Void> deletePrize(
             @PathVariable UUID prizeId,
             Authentication authentication
@@ -188,8 +174,7 @@ public class WheelController {
     public ResponseEntity<SpinWheelResponse> spinWheel(
             @PathVariable UUID merchantId
     ) {
-        Wheel wheel = wheelService.getWheelByMerchantId(merchantId);
-        WheelPrize prize = wheelService.spin(wheel.getId());
+        WheelPrize prize = wheelService.spin(merchantId);
 
         return ResponseEntity.ok(
                 new SpinWheelResponse(prize.getLabel())

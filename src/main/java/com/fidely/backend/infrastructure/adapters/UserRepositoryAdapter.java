@@ -188,4 +188,16 @@ public class UserRepositoryAdapter implements IUserRepository {
                 "No user profile found for user: " + userId
         );
     }
+
+    public UUID getMerchantId(UUID userId) {
+        return userRepository.findById(userId)
+                .filter(MerchantManager.class::isInstance)
+                .map(MerchantManager.class::cast)
+                .map(MerchantManager::getMerchantId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "L'utilisateur authentifié n'est pas un marchand."
+                        )
+                );
+    }
 }

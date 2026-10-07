@@ -2,9 +2,14 @@ package com.fidely.backend.application.services;
 
 import com.fidely.backend.application.port.in.IPointRuleService;
 import com.fidely.backend.application.port.out.IPointRuleRepository;
+import com.fidely.backend.application.port.out.IUserRepository;
 import com.fidely.backend.domain.models.loyalties.Rewards.PointRule;
+import com.fidely.backend.domain.models.loyalties.Rewards.RoundingMethod;
+import com.fidely.backend.domain.models.users.MerchantManager;
+import com.fidely.backend.domain.models.users.User;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -17,6 +22,7 @@ import java.util.UUID;
 public class PointRuleService implements IPointRuleService {
 
     private final IPointRuleRepository pointRuleRepository;
+    private final IUserRepository userRepository;
 
     /**
      * Crée un nouveau service de gestion des règles de points.
@@ -24,9 +30,11 @@ public class PointRuleService implements IPointRuleService {
      * @param pointRuleRepository repository des règles de points
      */
     public PointRuleService(
-            IPointRuleRepository pointRuleRepository
+            IPointRuleRepository pointRuleRepository,
+            IUserRepository userRepository
     ) {
         this.pointRuleRepository = pointRuleRepository;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -35,26 +43,41 @@ public class PointRuleService implements IPointRuleService {
      * <p>Lorsqu'une nouvelle règle active est créée, la règle active
      * précédente est clôturée afin de conserver l'historique des règles.</p>
      *
-     * @param pointRule règle de points à enregistrer
-     * @param merchantId identifiant du marchand
+     * @param userId identifiant de l'utilisateur
+     * @param pointsPerCurrencyUnit nombre de points attribués par unité monétaire
+     * @param roundingMethod méthode d'arrondi utilisée pour le calcul
+     * @param active indique si la règle est active
+     * @param validFrom date à partir de laquelle la règle est valide
+     * @param validTo date jusqu'à laquelle la règle est valide, ou null sans date de fin
+     * @param dateTime date de création de la règle
      * @return règle enregistrée
      */
     @Override
     public PointRule createPointRule(
-            PointRule pointRule,
-            UUID merchantId
+            UUID userId,
+            BigDecimal pointsPerCurrencyUnit,
+            RoundingMethod roundingMethod,
+            boolean active,
+            LocalDateTime validFrom,
+            LocalDateTime validTo,
+            LocalDateTime dateTime
     ) {
-        if (pointRule == null) {
+
+        if (userId == null) {
             throw new IllegalArgumentException(
-                    "Point rule cannot be null"
+                    "userId id cannot be null"
             );
         }
 
-        if (merchantId == null) {
-            throw new IllegalArgumentException(
-                    "Merchant id cannot be null"
-            );
-        }
+        UUID merchantId = userRepository.getMerchantId(userId);
+
+        PointRule pointRule = new PointRule(UUID.randomUUID(),
+                pointsPerCurrencyUnit,
+                roundingMethod,
+                active,
+                validFrom,
+                validTo,
+                dateTime);
 
         if (pointRule.isActive()) {
             closeCurrentActiveRule(
@@ -93,18 +116,18 @@ public class PointRuleService implements IPointRuleService {
     /**
      * Récupère la règle valide pour un marchand à une date donnée.
      *
-     * @param merchantId identifiant du marchand
+     * @param userId identifiant de l'utilisateur
      * @param date date à vérifier
      * @return règle valide si elle existe
      */
     @Override
     public Optional<PointRule> getValidPointRule(
-            UUID merchantId,
+            UUID userId,
             LocalDateTime date
     ) {
-        if (merchantId == null) {
+        if (userId == null) {
             throw new IllegalArgumentException(
-                    "Merchant id cannot be null"
+                    "UserId id cannot be null"
             );
         }
 
@@ -113,6 +136,8 @@ public class PointRuleService implements IPointRuleService {
                     "Date cannot be null"
             );
         }
+
+        UUID merchantId = userRepository.getMerchantId(userId);
 
         return pointRuleRepository
                 .findByMerchantId(merchantId)

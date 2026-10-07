@@ -2,6 +2,7 @@ package com.fidely.backend.application.services;
 
 import com.fidely.backend.application.port.in.ILoyaltyService;
 import com.fidely.backend.application.port.out.ILoyaltyRepository;
+import com.fidely.backend.application.port.out.IUserRepository;
 import com.fidely.backend.domain.models.loyalties.Loyalty;
 import com.fidely.backend.domain.models.loyalties.LoyaltyTransaction;
 import com.fidely.backend.domain.models.tickets.Ticket;
@@ -39,6 +40,7 @@ public class LoyaltyService implements ILoyaltyService {
     private static final int MAX_RETRIES = 3;
 
     private final ILoyaltyRepository loyaltyRepository;
+    private final IUserRepository userRepository;
     private final LoyaltyTransactionService loyaltyTransactionService;
 
     /**
@@ -46,6 +48,7 @@ public class LoyaltyService implements ILoyaltyService {
      * Construit le service de gestion des fidélités.
      *
      * @param loyaltyRepository repository des programmes de fidélité
+     * @param userRepository repository des utilisateurs
      * @param loyaltyTransactionService service responsable de l'exécution
      * ```
     transactionnelle des opérations
@@ -57,9 +60,11 @@ public class LoyaltyService implements ILoyaltyService {
      */
     public LoyaltyService(
             ILoyaltyRepository loyaltyRepository,
+            IUserRepository userRepository,
             LoyaltyTransactionService loyaltyTransactionService
     ) {
         this.loyaltyRepository = loyaltyRepository;
+        this.userRepository = userRepository;
         this.loyaltyTransactionService = loyaltyTransactionService;
     }
 
@@ -241,7 +246,7 @@ public class LoyaltyService implements ILoyaltyService {
      * transactionnelle est rejouée depuis le début.</p>
      *
      * @param loyaltyId identifiant du programme de fidélité
-     * @param merchantId identifiant du marchand
+     * @param userId identifiant de l'utilisateur
      * @param customerId identifiant du client
      * @param amount montant de la transaction
      * @return le programme de fidélité mis à jour
@@ -249,10 +254,11 @@ public class LoyaltyService implements ILoyaltyService {
     @Override
     public Loyalty addPointsManually(
             UUID loyaltyId,
-            UUID merchantId,
+            UUID userId,
             UUID customerId,
             BigDecimal amount
     ) {
+        UUID merchantId = userRepository.getMerchantId(userId);
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
                 return loyaltyTransactionService.addPointsManually(

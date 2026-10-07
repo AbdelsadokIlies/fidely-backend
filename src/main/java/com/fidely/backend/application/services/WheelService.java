@@ -129,33 +129,106 @@ public class WheelService implements IWheelService {
      * {@inheritDoc}
      */
     @Override
-    public WheelPrize savePrizeForManager(UUID userId, WheelPrize prize) {
-        if (prize == null) {
-            throw new IllegalArgumentException("prize must not be null");
-        }
-
-        UUID merchantId = getMerchantIdForManager(userId);
-
-        Wheel wheel = wheelRepository.findByMerchantId(merchantId)
-                .orElseThrow(() -> new IllegalArgumentException("Wheel not found"));
-
-        if (!wheel.getId().equals(prize.getWheelId())) {
+    public WheelPrize savePrizeForManager(
+            UUID userId,
+            String label,
+            int probabilityWeight
+    ) {
+        if (userId == null) {
             throw new IllegalArgumentException(
-                    "Prize does not belong to the manager's wheel"
+                    "userId must not be null"
             );
         }
 
-        if (prize.getLabel() == null || prize.getLabel().isBlank()) {
-            throw new IllegalArgumentException("label must not be blank");
+        if (label == null || label.isBlank()) {
+            throw new IllegalArgumentException(
+                    "label must not be blank"
+            );
         }
 
-        if (prize.getProbabilityWeight() < 0) {
+        if (probabilityWeight < 0) {
             throw new IllegalArgumentException(
                     "probabilityWeight must not be negative"
             );
         }
 
+        UUID merchantId = getMerchantIdForManager(userId);
+
+        Wheel wheel = wheelRepository.findByMerchantId(merchantId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Wheel not found")
+                );
+
+        WheelPrize prize = new WheelPrize(
+                UUID.randomUUID(),
+                wheel.getId(),
+                label,
+                probabilityWeight,
+                LocalDateTime.now()
+        );
+
         return wheelRepository.savePrize(prize);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public WheelPrize updatePrizeForManager(
+            UUID userId,
+            UUID prizeId,
+            String label,
+            int probabilityWeight
+    ) {
+        if (userId == null) {
+            throw new IllegalArgumentException(
+                    "userId must not be null"
+            );
+        }
+
+        if (prizeId == null) {
+            throw new IllegalArgumentException(
+                    "prizeId must not be null"
+            );
+        }
+
+        if (label == null || label.isBlank()) {
+            throw new IllegalArgumentException(
+                    "label must not be blank"
+            );
+        }
+
+        if (probabilityWeight < 0) {
+            throw new IllegalArgumentException(
+                    "probabilityWeight must not be negative"
+            );
+        }
+
+        UUID merchantId = getMerchantIdForManager(userId);
+
+        Wheel wheel = wheelRepository.findByMerchantId(merchantId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Wheel not found")
+                );
+
+        WheelPrize existingPrize = wheelRepository
+                .findPrizesByWheelId(wheel.getId())
+                .stream()
+                .filter(prize -> prize.getId().equals(prizeId))
+                .findFirst()
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Prize not found")
+                );
+
+        WheelPrize updatedPrize = new WheelPrize(
+                existingPrize.getId(),
+                existingPrize.getWheelId(),
+                label,
+                probabilityWeight,
+                existingPrize.getCreatedAt()
+        );
+
+        return wheelRepository.savePrize(updatedPrize);
     }
 
     /**
@@ -208,19 +281,19 @@ public class WheelService implements IWheelService {
     }
 
     @Override
-    public WheelPrize spin(UUID wheelId) {
-        if (wheelId == null) {
-            throw new IllegalArgumentException("wheelId must not be null");
-        }
+    public WheelPrize spin(UUID merchantId) {
 
-        Wheel wheel = wheelRepository.findById(wheelId)
-                .orElseThrow(() -> new IllegalArgumentException("Wheel not found"));
+        Wheel wheel = getWheelByMerchantId(merchantId);
+
+        if (wheel == null) {
+            throw new IllegalArgumentException("Wheel not found");
+        }
 
         if (!wheel.isActive()) {
             throw new IllegalArgumentException("Wheel is not active");
         }
 
-        List<WheelPrize> prizes = wheelRepository.findPrizesByWheelId(wheelId);
+        List<WheelPrize> prizes = wheelRepository.findPrizesByWheelId(wheel.getId());
 
         if (prizes.isEmpty()) {
             throw new IllegalArgumentException("Wheel has no prizes");

@@ -19,24 +19,20 @@ import java.util.UUID;
  * de points du marchand connecté.
  */
 @RestController
-@RequestMapping("/merchants/me/points-rule")
+@RequestMapping("/merchants")
 public class PointRuleController {
 
     private final IPointRuleService pointRuleService;
-    private final IUserRepository userRepository;
 
     /**
      * Crée un nouveau controller de gestion des règles de points.
      *
      * @param pointRuleService service des règles de points
-     * @param userRepository repository des utilisateurs
      */
     public PointRuleController(
-            IPointRuleService pointRuleService,
-            IUserRepository userRepository
+            IPointRuleService pointRuleService
     ) {
         this.pointRuleService = pointRuleService;
-        this.userRepository = userRepository;
     }
 
     /**
@@ -45,15 +41,14 @@ public class PointRuleController {
      * @param authentication authentification courante
      * @return règle de points actuellement applicable
      */
-    @GetMapping
+    @GetMapping("/me/points-rule")
     public ResponseEntity<PointRuleResponse> getCurrentPointRule(
             Authentication authentication
     ) {
         UUID userId = (UUID) authentication.getPrincipal();
-        UUID merchantId = getMerchantId(userId);
 
         return pointRuleService
-                .getValidPointRule(merchantId, LocalDateTime.now())
+                .getValidPointRule(userId, LocalDateTime.now())
                 .map(pointRule -> ResponseEntity.ok(toResponse(pointRule)))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -65,16 +60,15 @@ public class PointRuleController {
      * @param authentication authentification courante
      * @return règle enregistrée
      */
-    @PutMapping
+    @PutMapping("/me/points-rule")
     public ResponseEntity<PointRuleResponse> updatePointRule(
             @RequestBody UpdatePointRuleRequest request,
             Authentication authentication
     ) {
         UUID userId = (UUID) authentication.getPrincipal();
-        UUID merchantId = getMerchantId(userId);
 
-        PointRule pointRule = new PointRule(
-                UUID.randomUUID(),
+        PointRule savedPointRule = pointRuleService.createPointRule(
+                userId,
                 request.pointsPerCurrencyUnit(),
                 request.roundingMethod(),
                 request.active(),
@@ -83,33 +77,7 @@ public class PointRuleController {
                 LocalDateTime.now()
         );
 
-        PointRule savedPointRule = pointRuleService.createPointRule(
-                pointRule,
-                merchantId
-        );
-
         return ResponseEntity.ok(toResponse(savedPointRule));
-    }
-
-    /**
-     * Récupère l'identifiant du marchand associé à un utilisateur.
-     *
-     * @param userId identifiant de l'utilisateur
-     * @return identifiant du marchand
-     */
-    private UUID getMerchantId(UUID userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException("User not found")
-                );
-
-        if (!(user instanceof MerchantManager merchantManager)) {
-            throw new IllegalArgumentException(
-                    "User is not a merchant manager"
-            );
-        }
-
-        return merchantManager.getMerchantId();
     }
 
     /**

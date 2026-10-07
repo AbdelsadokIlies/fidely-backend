@@ -1,6 +1,7 @@
 package com.fidely.backend.application.services;
 
 import com.fidely.backend.application.port.out.IPointRuleRepository;
+import com.fidely.backend.application.port.out.IUserRepository;
 import com.fidely.backend.domain.models.loyalties.Rewards.PointRule;
 import com.fidely.backend.domain.models.loyalties.Rewards.RoundingMethod;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,27 +27,43 @@ class PointRuleServiceTest {
     @Mock
     private IPointRuleRepository pointRuleRepository;
 
+    @Mock
+    private IUserRepository userRepository;
+
     private PointRuleService pointRuleService;
 
     @BeforeEach
     void setUp() {
         pointRuleService = new PointRuleService(
-                pointRuleRepository
+                pointRuleRepository,
+                userRepository
         );
     }
 
     @Test
     void shouldCreatePointRule() {
         UUID merchantId = UUID.randomUUID();
-        PointRule pointRule = createPointRule();
+        LocalDateTime validFrom =
+                LocalDateTime.of(2026, 1, 1, 0, 0);
 
-        when(pointRuleRepository.save(pointRule, merchantId))
-                .thenReturn(pointRule);
+        PointRule pointRule = new PointRule(
+                UUID.randomUUID(),
+                new BigDecimal("1.0000"),
+                RoundingMethod.FLOOR,
+                true,
+                validFrom,
+                LocalDateTime.of(2026, 12, 31, 23, 59),
+                validFrom);
 
         PointRule result =
                 pointRuleService.createPointRule(
-                        pointRule,
-                        merchantId
+                        UUID.randomUUID(),
+                        new BigDecimal("1.0000"),
+                        RoundingMethod.FLOOR,
+                        true,
+                        validFrom,
+                        LocalDateTime.of(2026, 12, 31, 23, 59),
+                        validFrom
                 );
 
         assertThat(result).isSameAs(pointRule);
@@ -58,9 +75,25 @@ class PointRuleServiceTest {
     @Test
     void shouldGetPointRulesByMerchant() {
         UUID merchantId = UUID.randomUUID();
+        LocalDateTime validFrom =
+                LocalDateTime.of(2026, 1, 1, 0, 0);
 
-        PointRule pointRule1 = createPointRule();
-        PointRule pointRule2 = createPointRule();
+        PointRule pointRule1 = new PointRule(
+                UUID.randomUUID(),
+                new BigDecimal("1.0000"),
+                RoundingMethod.FLOOR,
+                true,
+                validFrom,
+                LocalDateTime.of(2026, 12, 31, 23, 59),
+                validFrom);
+        PointRule pointRule2 = new PointRule(
+                UUID.randomUUID(),
+                new BigDecimal("1.0000"),
+                RoundingMethod.FLOOR,
+                true,
+                validFrom,
+                LocalDateTime.of(2026, 12, 31, 23, 59),
+                validFrom);
 
         when(pointRuleRepository.findByMerchantId(merchantId))
                 .thenReturn(List.of(pointRule1, pointRule2));
@@ -193,8 +226,18 @@ class PointRuleServiceTest {
     @Test
     void shouldCreatePointRuleWhenNoActiveRuleExists() {
         UUID merchantId = UUID.randomUUID();
+        LocalDateTime validFrom =
+                LocalDateTime.of(2026, 1, 1, 0, 0);
 
-        PointRule pointRule = createPointRule();
+        PointRule pointRule = new PointRule(
+                UUID.randomUUID(),
+                new BigDecimal("1.0000"),
+                RoundingMethod.FLOOR,
+                true,
+                validFrom,
+                LocalDateTime.of(2026, 12, 31, 23, 59),
+                validFrom
+        );
 
         when(pointRuleRepository.findByMerchantId(merchantId))
                 .thenReturn(List.of());
@@ -203,8 +246,13 @@ class PointRuleServiceTest {
                 .thenReturn(pointRule);
 
         PointRule result = pointRuleService.createPointRule(
-                pointRule,
-                merchantId
+                UUID.randomUUID(),
+                new BigDecimal("1.0000"),
+                RoundingMethod.FLOOR,
+                true,
+                validFrom,
+                LocalDateTime.of(2026, 12, 31, 23, 59),
+                validFrom
         );
 
         assertThat(result).isSameAs(pointRule);
@@ -251,9 +299,17 @@ class PointRuleServiceTest {
                 eq(merchantId)
         )).thenAnswer(invocation -> invocation.getArgument(0));
 
+        LocalDateTime validFrom =
+                LocalDateTime.of(2026, 1, 1, 0, 0);
+
         PointRule result = pointRuleService.createPointRule(
-                newRule,
-                merchantId
+                UUID.randomUUID(),
+                new BigDecimal("1.0000"),
+                RoundingMethod.FLOOR,
+                true,
+                validFrom,
+                LocalDateTime.of(2026, 12, 31, 23, 59),
+                validFrom
         );
 
         assertThat(result).isSameAs(newRule);
@@ -282,24 +338,5 @@ class PointRuleServiceTest {
 
         assertThat(savedRules.get(1))
                 .isSameAs(newRule);
-    }
-
-    private PointRule createPointRule() {
-        return createPointRule(UUID.randomUUID());
-    }
-
-    private PointRule createPointRule(UUID id) {
-        LocalDateTime validFrom =
-                LocalDateTime.of(2026, 1, 1, 0, 0);
-
-        return new PointRule(
-                id,
-                new BigDecimal("1.0000"),
-                RoundingMethod.FLOOR,
-                true,
-                validFrom,
-                LocalDateTime.of(2026, 12, 31, 23, 59),
-                validFrom
-        );
     }
 }

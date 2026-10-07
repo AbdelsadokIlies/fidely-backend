@@ -7,11 +7,12 @@ import com.fidely.backend.api.dtos.mappers.transactions.CreateTransactionRespons
 import com.fidely.backend.api.dtos.mappers.transactions.LoyaltyTransactionResponseMapper;
 import com.fidely.backend.api.dtos.mappers.transactions.ManualTransactionRequestMapper;
 import com.fidely.backend.api.dtos.mappers.transactions.TicketResponseMapper;
-import com.fidely.backend.api.dtos.models.tickets.TicketResponse;
 import com.fidely.backend.application.port.in.ILoyaltyService;
 import com.fidely.backend.application.port.in.ITicketService;
+import com.fidely.backend.application.port.out.IUserRepository;
 import com.fidely.backend.application.port.out.security.IAccessTokenManagement;
 import com.fidely.backend.domain.models.tickets.Ticket;
+import com.fidely.backend.domain.models.users.MerchantManager;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +29,9 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * Tests de la configuration de sécurité pour les transactions.
+ */
 @WebMvcTest(controllers = TransactionController.class)
 @Import(SecurityConfig.class)
 class SecurityConfigTest {
@@ -51,6 +55,9 @@ class SecurityConfigTest {
     private ILoyaltyService loyaltyService;
 
     @MockitoBean
+    private IUserRepository userRepository;
+
+    @MockitoBean
     private OcrTicketResponseMapper ocrTicketResponseMapper;
 
     @MockitoBean
@@ -68,9 +75,11 @@ class SecurityConfigTest {
     @MockitoBean
     private ManualTransactionRequestMapper manualTransactionRequestMapper;
 
+    @MockitoBean
+    private MerchantManager merchantManager;
+
     @Test
     void shouldRejectUnauthenticatedRequest() throws Exception {
-
         UUID transactionId = UUID.randomUUID();
 
         mockMvc.perform(get("/transactions/{id}", transactionId))
@@ -79,7 +88,6 @@ class SecurityConfigTest {
 
     @Test
     void shouldAllowAuthenticatedRequest() throws Exception {
-
         UUID transactionId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
 
@@ -90,13 +98,15 @@ class SecurityConfigTest {
                 .thenReturn("CUSTOMER");
 
         Ticket ticket = mock(Ticket.class);
-        TicketResponse ticketResponse = mock(TicketResponse.class);
 
         when(ticketService.getTicketById(transactionId))
                 .thenReturn(Optional.of(ticket));
 
-        when(ticketResponseMapper.toResponse(ticket))
-                .thenReturn(ticketResponse);
+        when(
+                ticketResponseMapper.toResponse(ticket)
+        ).thenReturn(mock(
+                com.fidely.backend.api.dtos.models.tickets.TicketResponse.class
+        ));
 
         mockMvc.perform(
                         get("/transactions/{id}", transactionId)

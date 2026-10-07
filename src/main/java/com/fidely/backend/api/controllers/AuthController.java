@@ -154,6 +154,12 @@ public class AuthController {
         return ResponseEntity.ok().build();
     }
 
+    /**
+     * renvoie le mail de vérification du compte
+     *
+     * @param request email en question
+     * @return réponse HTTP indiquant que l'adresse email a été vérifiée
+     */
     @PostMapping(
             path = "/resend-verification-email",
             consumes = MediaType.APPLICATION_JSON_VALUE

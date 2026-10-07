@@ -18,6 +18,7 @@ import com.fidely.backend.application.port.in.ITicketService;
 import com.fidely.backend.application.port.out.IUserRepository;
 import com.fidely.backend.domain.models.loyalties.Loyalty;
 import com.fidely.backend.domain.models.tickets.Ticket;
+import com.fidely.backend.domain.models.users.MerchantManager;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -211,25 +212,24 @@ public class TransactionController {
         return ResponseEntity.ok(response);
     }
 
-    /**
 
+    /**
      * Enregistre manuellement une transaction de fidélité.
      *
      * <p>Cette opération est utilisée lorsqu'un marchand souhaite
      * attribuer directement des points à un client sans passer
      * par l'extraction d'un ticket de caisse.</p>
      *
+     * <p>L'utilisateur authentifié doit être un marchand.
+     * Le marchand utilisé pour la transaction est vérifié
+     * à partir du compte authentifié.</p>
+     *
      * <p>Le service applicatif détermine la règle de points applicable,
      * calcule les points à attribuer, met à jour le solde de fidélité
      * et enregistre la transaction.</p>
      *
-     * @param request requête contenant l'identifiant de fidélité,
-     * ```
-    les identifiants du marchand et du client ainsi
-    ```
-     * ```
-    que le montant de la transaction
-    ```
+     * @param request requête contenant les informations de la transaction
+     * @param authentication utilisateur authentifié
      * @return fidélité mise à jour après attribution des points
      */
     @PostMapping(
@@ -237,14 +237,17 @@ public class TransactionController {
             produces = MediaType.APPLICATION_JSON_VALUE
     )
     public ResponseEntity<CreateTransactionResponse> createManualTransaction(
-            @Valid @RequestBody ManualTransactionRequest request
+            @Valid @RequestBody ManualTransactionRequest request,
+            Authentication authentication
     ) {
+        UUID userId = (UUID) authentication.getPrincipal();
+
         ManualTransactionRequest validatedRequest =
                 manualTransactionRequestMapper.toRequest(request);
 
         Loyalty loyalty = loyaltyService.addPointsManually(
                 validatedRequest.loyaltyId(),
-                validatedRequest.merchantId(),
+                userId,
                 validatedRequest.customerId(),
                 validatedRequest.amount()
         );

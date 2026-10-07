@@ -1,5 +1,6 @@
 package com.fidely.backend.application.port.out;
 
+import com.fidely.backend.domain.models.users.MerchantManager;
 import com.fidely.backend.domain.models.users.User;
 
 import java.util.Optional;
@@ -44,4 +45,7 @@ public interface IUserRepository {
      * @param userId identifiant de l'utilisateur
      */
     void deleteById(UUID userId);
+
+
+    UUID getMerchantId(UUID userId);
 }

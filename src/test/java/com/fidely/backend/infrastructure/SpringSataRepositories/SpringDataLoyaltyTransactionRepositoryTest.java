@@ -1,4 +1,4 @@
-package com.fidely.backend.infrastructure;
+package com.fidely.backend.infrastructure.SpringSataRepositories;
 
 import com.fidely.backend.IntegrationTest;
 import com.fidely.backend.infrastructure.SpringDataRepositories.SpringDataLoyaltyTransactionRepository;

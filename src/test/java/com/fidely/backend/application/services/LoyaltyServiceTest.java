@@ -1,6 +1,7 @@
 package com.fidely.backend.application.services;
 
 import com.fidely.backend.application.port.out.ILoyaltyRepository;
+import com.fidely.backend.application.port.out.IUserRepository;
 import com.fidely.backend.domain.models.loyalties.Loyalty;
 import com.fidely.backend.domain.models.loyalties.LoyaltyTransaction;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,11 +20,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
+/**
+ * Tests unitaires du service applicatif de gestion des programmes
+ * de fidélité.
+ */
 @ExtendWith(MockitoExtension.class)
 class LoyaltyServiceTest {
 
     @Mock
     private ILoyaltyRepository loyaltyRepository;
+
+    @Mock
+    private IUserRepository userRepository;
 
     @Mock
     private LoyaltyTransactionService loyaltyTransactionService;
@@ -34,6 +42,7 @@ class LoyaltyServiceTest {
     void setUp() {
         loyaltyService = new LoyaltyService(
                 loyaltyRepository,
+                userRepository,
                 loyaltyTransactionService
         );
     }
@@ -60,21 +69,22 @@ class LoyaltyServiceTest {
                 merchantId
         );
 
-        assertThat(result).isEqualTo(savedLoyalty);
+        assertThat(result)
+                .isEqualTo(savedLoyalty);
 
-        verify(loyaltyRepository).save(
-                org.mockito.ArgumentMatchers.argThat(
+        verify(loyaltyRepository)
+                .save(argThat(
                         loyalty ->
                                 loyalty.getCustomerId().equals(customerId)
                                         && loyalty.getMerchantId().equals(merchantId)
                                         && loyalty.getPointsBalance() == 0
-                )
-        );
+                ));
     }
 
     @Test
     void shouldAddPointsManually() {
         UUID loyaltyId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
         UUID merchantId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
 
@@ -88,6 +98,9 @@ class LoyaltyServiceTest {
                 LocalDateTime.now(),
                 LocalDateTime.now()
         );
+
+        when(userRepository.getMerchantId(userId))
+                .thenReturn(merchantId);
 
         when(loyaltyTransactionService.addPointsManually(
                 loyaltyId,
@@ -98,26 +111,35 @@ class LoyaltyServiceTest {
 
         Loyalty result = loyaltyService.addPointsManually(
                 loyaltyId,
-                merchantId,
+                userId,
                 customerId,
                 amount
         );
 
-        assertThat(result).isEqualTo(loyalty);
+        assertThat(result)
+                .isEqualTo(loyalty);
 
-        verify(loyaltyTransactionService).addPointsManually(
-                loyaltyId,
-                merchantId,
-                customerId,
-                amount
+        verify(userRepository)
+                .getMerchantId(userId);
+
+        verify(loyaltyTransactionService)
+                .addPointsManually(
+                        loyaltyId,
+                        merchantId,
+                        customerId,
+                        amount
+                );
+
+        verifyNoMoreInteractions(
+                userRepository,
+                loyaltyTransactionService
         );
-
-        verifyNoMoreInteractions(loyaltyTransactionService);
     }
 
     @Test
     void shouldRetryManualTransactionAfterOptimisticLockingFailure() {
         UUID loyaltyId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
         UUID merchantId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
 
@@ -131,6 +153,9 @@ class LoyaltyServiceTest {
                 LocalDateTime.now(),
                 LocalDateTime.now()
         );
+
+        when(userRepository.getMerchantId(userId))
+                .thenReturn(merchantId);
 
         when(loyaltyTransactionService.addPointsManually(
                 loyaltyId,
@@ -145,12 +170,16 @@ class LoyaltyServiceTest {
 
         Loyalty result = loyaltyService.addPointsManually(
                 loyaltyId,
-                merchantId,
+                userId,
                 customerId,
                 amount
         );
 
-        assertThat(result).isEqualTo(loyalty);
+        assertThat(result)
+                .isEqualTo(loyalty);
+
+        verify(userRepository)
+                .getMerchantId(userId);
 
         verify(loyaltyTransactionService, times(2))
                 .addPointsManually(
@@ -164,10 +193,14 @@ class LoyaltyServiceTest {
     @Test
     void shouldPropagateOptimisticLockingFailureAfterMaxRetries() {
         UUID loyaltyId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
         UUID merchantId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
 
         BigDecimal amount = new BigDecimal("112.00");
+
+        when(userRepository.getMerchantId(userId))
+                .thenReturn(merchantId);
 
         when(loyaltyTransactionService.addPointsManually(
                 loyaltyId,
@@ -182,12 +215,17 @@ class LoyaltyServiceTest {
         assertThatThrownBy(() ->
                 loyaltyService.addPointsManually(
                         loyaltyId,
-                        merchantId,
+                        userId,
                         customerId,
                         amount
                 )
         )
-                .isInstanceOf(OptimisticLockingFailureException.class);
+                .isInstanceOf(
+                        OptimisticLockingFailureException.class
+                );
+
+        verify(userRepository)
+                .getMerchantId(userId);
 
         verify(loyaltyTransactionService, times(3))
                 .addPointsManually(
@@ -257,9 +295,13 @@ class LoyaltyServiceTest {
                 loyaltyService.getTransactionsByCustomer(customerId);
 
         assertThat(result)
-                .containsExactly(transaction1, transaction2);
+                .containsExactly(
+                        transaction1,
+                        transaction2
+                );
 
-        verify(loyaltyRepository).findByCustomerId(customerId);
+        verify(loyaltyRepository)
+                .findByCustomerId(customerId);
 
         verify(loyaltyRepository)
                 .findTransactionsByLoyaltyId(loyaltyId1);
@@ -278,9 +320,11 @@ class LoyaltyServiceTest {
         List<LoyaltyTransaction> result =
                 loyaltyService.getTransactionsByCustomer(customerId);
 
-        assertThat(result).isEmpty();
+        assertThat(result)
+                .isEmpty();
 
-        verify(loyaltyRepository).findByCustomerId(customerId);
+        verify(loyaltyRepository)
+                .findByCustomerId(customerId);
 
         verifyNoMoreInteractions(loyaltyRepository);
     }
@@ -344,9 +388,13 @@ class LoyaltyServiceTest {
                 loyaltyService.getTransactionsByMerchant(merchantId);
 
         assertThat(result)
-                .containsExactly(transaction1, transaction2);
+                .containsExactly(
+                        transaction1,
+                        transaction2
+                );
 
-        verify(loyaltyRepository).findByMerchantId(merchantId);
+        verify(loyaltyRepository)
+                .findByMerchantId(merchantId);
 
         verify(loyaltyRepository)
                 .findTransactionsByLoyaltyId(loyaltyId1);
@@ -365,9 +413,11 @@ class LoyaltyServiceTest {
         List<LoyaltyTransaction> result =
                 loyaltyService.getTransactionsByMerchant(merchantId);
 
-        assertThat(result).isEmpty();
+        assertThat(result)
+                .isEmpty();
 
-        verify(loyaltyRepository).findByMerchantId(merchantId);
+        verify(loyaltyRepository)
+                .findByMerchantId(merchantId);
 
         verifyNoMoreInteractions(loyaltyRepository);
     }

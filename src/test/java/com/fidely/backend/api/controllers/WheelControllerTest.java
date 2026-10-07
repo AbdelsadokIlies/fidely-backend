@@ -22,8 +22,6 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -223,34 +221,13 @@ class WheelControllerTest {
 
     @Test
     void shouldCreatePrize() {
-        UUID userId = UUID.randomUUID();
-        UUID wheelId = UUID.randomUUID();
-        UUID prizeId = UUID.randomUUID();
-        LocalDateTime createdAt = LocalDateTime.now();
+        when(authentication.getPrincipal())
+                .thenReturn(userId);
 
-        Wheel wheel = new Wheel(
-                wheelId,
-                UUID.randomUUID(),
-                "Roue Fidely",
-                true,
-                0,
-                false,
-                createdAt
-        );
-
-        WheelPrize prize = new WheelPrize(
-                prizeId,
-                wheelId,
-                "10% de réduction",
-                50,
-                createdAt
-        );
-
-        when(authentication.getPrincipal()).thenReturn(userId);
-        when(wheelService.getWheelForManager(userId)).thenReturn(wheel);
         when(wheelService.savePrizeForManager(
-                eq(userId),
-                any(WheelPrize.class)
+                userId,
+                "10% de réduction",
+                50
         )).thenReturn(prize);
 
         ResponseEntity<WheelPrizeResponse> response =
@@ -262,53 +239,41 @@ class WheelControllerTest {
                         authentication
                 );
 
+        assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
+
         assertEquals(prizeId, response.getBody().id());
-        assertEquals("10% de réduction", response.getBody().label());
-        assertEquals(50, response.getBody().probabilityWeight());
+        assertEquals("10 points", response.getBody().label());
+        assertEquals(5, response.getBody().probabilityWeight());
+
+        verify(authentication).getPrincipal();
+
+        verify(wheelService).savePrizeForManager(
+                userId,
+                "10% de réduction",
+                50
+        );
     }
+
     @Test
     void shouldUpdatePrize() {
-        UUID userId = UUID.randomUUID();
-        UUID wheelId = UUID.randomUUID();
-        UUID prizeId = UUID.randomUUID();
-        LocalDateTime createdAt = LocalDateTime.now();
-
-        Wheel wheel = new Wheel(
-                wheelId,
-                UUID.randomUUID(),
-                "Roue Fidely",
-                true,
-                0,
-                false,
-                createdAt
-        );
-
-        WheelPrize existingPrize = new WheelPrize(
-                prizeId,
-                wheelId,
-                "Ancien lot",
-                20,
-                createdAt
-        );
-
         WheelPrize updatedPrize = new WheelPrize(
                 prizeId,
                 wheelId,
                 "10% de réduction",
                 80,
-                createdAt
+                prize.getCreatedAt()
         );
 
-        when(authentication.getPrincipal()).thenReturn(userId);
-        when(wheelService.getWheelForManager(userId)).thenReturn(wheel);
-        when(wheelService.getPrizes(wheelId))
-                .thenReturn(List.of(existingPrize));
+        when(authentication.getPrincipal())
+                .thenReturn(userId);
 
-        when(wheelService.savePrizeForManager(
-                eq(userId),
-                any(WheelPrize.class)
+        when(wheelService.updatePrizeForManager(
+                userId,
+                prizeId,
+                "10% de réduction",
+                80
         )).thenReturn(updatedPrize);
 
         ResponseEntity<WheelPrizeResponse> response =
@@ -321,18 +286,28 @@ class WheelControllerTest {
                         authentication
                 );
 
+        assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
+
         assertEquals(prizeId, response.getBody().id());
         assertEquals("10% de réduction", response.getBody().label());
         assertEquals(80, response.getBody().probabilityWeight());
+
+        verify(authentication).getPrincipal();
+
+        verify(wheelService).updatePrizeForManager(
+                userId,
+                prizeId,
+                "10% de réduction",
+                80
+        );
     }
+
     @Test
     void shouldDeletePrize() {
-        UUID userId = UUID.randomUUID();
-        UUID prizeId = UUID.randomUUID();
-
-        when(authentication.getPrincipal()).thenReturn(userId);
+        when(authentication.getPrincipal())
+                .thenReturn(userId);
 
         ResponseEntity<Void> response =
                 wheelController.deletePrize(
@@ -342,6 +317,7 @@ class WheelControllerTest {
 
         assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
 
+        verify(authentication).getPrincipal();
         verify(wheelService).deletePrizeForManager(userId, prizeId);
     }
 }

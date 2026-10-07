@@ -295,7 +295,6 @@ class WheelServiceTest {
     @Test
     void shouldSavePrizeForManager() {
         Wheel wheel = createWheel();
-        WheelPrize prize = createPrize();
 
         when(userRepository.findById(userId))
                 .thenReturn(Optional.of(merchantManager));
@@ -303,27 +302,166 @@ class WheelServiceTest {
         when(wheelRepository.findByMerchantId(merchantId))
                 .thenReturn(Optional.of(wheel));
 
-        when(wheelRepository.savePrize(prize))
-                .thenReturn(prize);
+        when(wheelRepository.savePrize(any(WheelPrize.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         WheelPrize result = wheelService.savePrizeForManager(
                 userId,
-                prize
+                "10% de réduction",
+                50
         );
 
-        assertSame(prize, result);
+        assertNotNull(result);
+        assertNotNull(result.getId());
+        assertEquals(wheelId, result.getWheelId());
+        assertEquals("10% de réduction", result.getLabel());
+        assertEquals(50, result.getProbabilityWeight());
+        assertNotNull(result.getCreatedAt());
 
         verify(userRepository).findById(userId);
         verify(wheelRepository).findByMerchantId(merchantId);
-        verify(wheelRepository).savePrize(prize);
+        verify(wheelRepository).savePrize(any(WheelPrize.class));
+    }
+
+    /**
+     * Vérifie qu'un label vide est refusé lors de la création
+     * d'un lot.
+     */
+    @Test
+    void shouldRejectBlankPrizeLabel() {
+        when(userRepository.findById(userId))
+                .thenReturn(Optional.of(merchantManager));
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> wheelService.savePrizeForManager(
+                        userId,
+                        " ",
+                        50
+                )
+        );
+
+        assertEquals(
+                "label must not be blank",
+                exception.getMessage()
+        );
+
+        verify(wheelRepository, never()).findByMerchantId(any(UUID.class));
+        verify(wheelRepository, never()).savePrize(any(WheelPrize.class));
+    }
+
+    /**
+     * Vérifie qu'un poids de probabilité négatif est refusé.
+     */
+    @Test
+    void shouldRejectNegativePrizeProbabilityWeight() {
+        when(userRepository.findById(userId))
+                .thenReturn(Optional.of(merchantManager));
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> wheelService.savePrizeForManager(
+                        userId,
+                        "10% de réduction",
+                        -1
+                )
+        );
+
+        assertEquals(
+                "probabilityWeight must not be negative",
+                exception.getMessage()
+        );
+
+        verify(wheelRepository, never()).findByMerchantId(any(UUID.class));
+        verify(wheelRepository, never()).savePrize(any(WheelPrize.class));
     }
 
     /**
      * Vérifie qu'un manager ne peut pas enregistrer un lot
-     * appartenant à une autre roue.
+     * sans roue existante.
      */
     @Test
-    void shouldRejectPrizeFromAnotherWheel() {
+    void shouldRejectCreatingPrizeWhenWheelDoesNotExist() {
+        when(userRepository.findById(userId))
+                .thenReturn(Optional.of(merchantManager));
+
+        when(wheelRepository.findByMerchantId(merchantId))
+                .thenReturn(Optional.empty());
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> wheelService.savePrizeForManager(
+                        userId,
+                        "10% de réduction",
+                        50
+                )
+        );
+
+        assertEquals(
+                "Wheel not found",
+                exception.getMessage()
+        );
+
+        verify(wheelRepository).findByMerchantId(merchantId);
+        verify(wheelRepository, never()).savePrize(any(WheelPrize.class));
+    }
+
+    /**
+     * Vérifie qu'un manager peut modifier un lot appartenant
+     * à sa propre roue.
+     */
+    @Test
+    void shouldUpdatePrizeForManager() {
+        Wheel wheel = createWheel();
+
+        LocalDateTime createdAt = LocalDateTime.now().minusDays(2);
+
+        WheelPrize existingPrize = new WheelPrize(
+                UUID.randomUUID(),
+                wheelId,
+                "Ancien lot",
+                20,
+                createdAt
+        );
+
+        when(userRepository.findById(userId))
+                .thenReturn(Optional.of(merchantManager));
+
+        when(wheelRepository.findByMerchantId(merchantId))
+                .thenReturn(Optional.of(wheel));
+
+        when(wheelRepository.findPrizesByWheelId(wheelId))
+                .thenReturn(List.of(existingPrize));
+
+        when(wheelRepository.savePrize(any(WheelPrize.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        WheelPrize result = wheelService.updatePrizeForManager(
+                userId,
+                existingPrize.getId(),
+                "10% de réduction",
+                80
+        );
+
+        assertNotNull(result);
+        assertEquals(existingPrize.getId(), result.getId());
+        assertEquals(wheelId, result.getWheelId());
+        assertEquals("10% de réduction", result.getLabel());
+        assertEquals(80, result.getProbabilityWeight());
+        assertEquals(createdAt, result.getCreatedAt());
+
+        verify(userRepository).findById(userId);
+        verify(wheelRepository).findByMerchantId(merchantId);
+        verify(wheelRepository).findPrizesByWheelId(wheelId);
+        verify(wheelRepository).savePrize(any(WheelPrize.class));
+    }
+
+    /**
+     * Vérifie qu'un manager ne peut pas modifier un lot
+     * qui n'appartient pas à sa roue.
+     */
+    @Test
+    void shouldRejectUpdatingPrizeFromAnotherWheel() {
         Wheel wheel = createWheel();
 
         WheelPrize prize = new WheelPrize(
@@ -340,20 +478,122 @@ class WheelServiceTest {
         when(wheelRepository.findByMerchantId(merchantId))
                 .thenReturn(Optional.of(wheel));
 
+        when(wheelRepository.findPrizesByWheelId(wheelId))
+                .thenReturn(List.of(prize));
+
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> wheelService.savePrizeForManager(
+                () -> wheelService.updatePrizeForManager(
                         userId,
-                        prize
+                        prize.getId(),
+                        "Nouveau lot",
+                        50
                 )
         );
 
         assertEquals(
-                "Prize does not belong to the manager's wheel",
+                "Prize not found",
                 exception.getMessage()
         );
 
-        verify(wheelRepository, never()).savePrize(any(WheelPrize.class));
+        verify(wheelRepository).findByMerchantId(merchantId);
+        verify(wheelRepository).findPrizesByWheelId(wheelId);
+        verify(wheelRepository, never())
+                .savePrize(any(WheelPrize.class));
+    }
+
+    /**
+     * Vérifie qu'un lot inexistant ne peut pas être modifié.
+     */
+    @Test
+    void shouldRejectUpdatingUnknownPrize() {
+        Wheel wheel = createWheel();
+        UUID unknownPrizeId = UUID.randomUUID();
+
+        when(userRepository.findById(userId))
+                .thenReturn(Optional.of(merchantManager));
+
+        when(wheelRepository.findByMerchantId(merchantId))
+                .thenReturn(Optional.of(wheel));
+
+        when(wheelRepository.findPrizesByWheelId(wheelId))
+                .thenReturn(List.of());
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> wheelService.updatePrizeForManager(
+                        userId,
+                        unknownPrizeId,
+                        "Nouveau lot",
+                        50
+                )
+        );
+
+        assertEquals(
+                "Prize not found",
+                exception.getMessage()
+        );
+
+        verify(wheelRepository, never())
+                .savePrize(any(WheelPrize.class));
+    }
+
+    /**
+     * Vérifie qu'un label vide est refusé lors de la modification
+     * d'un lot.
+     */
+    @Test
+    void shouldRejectBlankPrizeLabelWhenUpdating() {
+        UUID prizeId = UUID.randomUUID();
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> wheelService.updatePrizeForManager(
+                        userId,
+                        prizeId,
+                        " ",
+                        50
+                )
+        );
+
+        assertEquals(
+                "label must not be blank",
+                exception.getMessage()
+        );
+
+        verifyNoInteractions(
+                userRepository,
+                wheelRepository
+        );
+    }
+
+    /**
+     * Vérifie qu'un poids de probabilité négatif est refusé
+     * lors de la modification d'un lot.
+     */
+    @Test
+    void shouldRejectNegativePrizeProbabilityWeightWhenUpdating() {
+        UUID prizeId = UUID.randomUUID();
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> wheelService.updatePrizeForManager(
+                        userId,
+                        prizeId,
+                        "10% de réduction",
+                        -1
+                )
+        );
+
+        assertEquals(
+                "probabilityWeight must not be negative",
+                exception.getMessage()
+        );
+
+        verifyNoInteractions(
+                userRepository,
+                wheelRepository
+        );
     }
 
     /**
@@ -447,9 +687,13 @@ class WheelServiceTest {
                 exception.getMessage()
         );
 
-        verify(wheelRepository, never()).findByMerchantId(any(UUID.class));
+        verify(wheelRepository, never())
+                .findByMerchantId(any(UUID.class));
     }
 
+    /**
+     * Vérifie qu'une roue active permet de sélectionner un lot.
+     */
     @Test
     void shouldSpinWheelAndReturnPrize() {
         UUID wheelId = UUID.randomUUID();
@@ -481,13 +725,13 @@ class WheelServiceTest {
                 now
         );
 
-        when(wheelRepository.findById(wheelId))
+        when(wheelRepository.findByMerchantId(wheel.getMerchantId()))
                 .thenReturn(Optional.of(wheel));
 
         when(wheelRepository.findPrizesByWheelId(wheelId))
                 .thenReturn(List.of(firstPrize, secondPrize));
 
-        WheelPrize result = wheelService.spin(wheelId);
+        WheelPrize result = wheelService.spin(wheel.getMerchantId());
 
         assertNotNull(result);
         assertTrue(
@@ -495,35 +739,49 @@ class WheelServiceTest {
                         || result.getId().equals(secondPrize.getId())
         );
 
-        verify(wheelRepository).findById(wheelId);
+        verify(wheelRepository)
+                .findByMerchantId(wheel.getMerchantId());
         verify(wheelRepository).findPrizesByWheelId(wheelId);
     }
 
+    /**
+     * Vérifie qu'une roue inexistante ne peut pas être utilisée
+     * pour effectuer un tirage.
+     */
     @Test
     void shouldRejectSpinWhenWheelDoesNotExist() {
-        UUID wheelId = UUID.randomUUID();
+        UUID merchantId = UUID.randomUUID();
 
-        when(wheelRepository.findById(wheelId))
+        when(wheelRepository.findByMerchantId(merchantId))
                 .thenReturn(Optional.empty());
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> wheelService.spin(wheelId)
+                () -> wheelService.spin(merchantId)
         );
 
-        assertEquals("Wheel not found", exception.getMessage());
+        assertEquals(
+                "Wheel not found",
+                exception.getMessage()
+        );
 
-        verify(wheelRepository).findById(wheelId);
-        verify(wheelRepository, never()).findPrizesByWheelId(wheelId);
+        verify(wheelRepository).findByMerchantId(merchantId);
+        verify(wheelRepository, never())
+                .findPrizesByWheelId(any(UUID.class));
     }
 
+    /**
+     * Vérifie qu'une roue inactive ne peut pas être utilisée
+     * pour effectuer un tirage.
+     */
     @Test
     void shouldRejectSpinWhenWheelIsInactive() {
+        UUID merchantId = UUID.randomUUID();
         UUID wheelId = UUID.randomUUID();
 
         Wheel wheel = new Wheel(
                 wheelId,
-                UUID.randomUUID(),
+                merchantId,
                 "Roue Fidely",
                 false,
                 0,
@@ -531,27 +789,35 @@ class WheelServiceTest {
                 LocalDateTime.now()
         );
 
-        when(wheelRepository.findById(wheelId))
+        when(wheelRepository.findByMerchantId(merchantId))
                 .thenReturn(Optional.of(wheel));
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> wheelService.spin(wheelId)
+                () -> wheelService.spin(merchantId)
         );
 
-        assertEquals("Wheel is not active", exception.getMessage());
+        assertEquals(
+                "Wheel is not active",
+                exception.getMessage()
+        );
 
-        verify(wheelRepository).findById(wheelId);
-        verify(wheelRepository, never()).findPrizesByWheelId(wheelId);
+        verify(wheelRepository).findByMerchantId(merchantId);
+        verify(wheelRepository, never())
+                .findPrizesByWheelId(wheelId);
     }
 
+    /**
+     * Vérifie qu'une roue sans lot ne peut pas effectuer de tirage.
+     */
     @Test
     void shouldRejectSpinWhenWheelHasNoPrizes() {
+        UUID merchantId = UUID.randomUUID();
         UUID wheelId = UUID.randomUUID();
 
         Wheel wheel = new Wheel(
                 wheelId,
-                UUID.randomUUID(),
+                merchantId,
                 "Roue Fidely",
                 true,
                 0,
@@ -559,7 +825,7 @@ class WheelServiceTest {
                 LocalDateTime.now()
         );
 
-        when(wheelRepository.findById(wheelId))
+        when(wheelRepository.findByMerchantId(merchantId))
                 .thenReturn(Optional.of(wheel));
 
         when(wheelRepository.findPrizesByWheelId(wheelId))
@@ -567,20 +833,31 @@ class WheelServiceTest {
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> wheelService.spin(wheelId)
+                () -> wheelService.spin(merchantId)
         );
 
-        assertEquals("Wheel has no prizes", exception.getMessage());
+        assertEquals(
+                "Wheel has no prizes",
+                exception.getMessage()
+        );
+
+        verify(wheelRepository).findByMerchantId(merchantId);
+        verify(wheelRepository).findPrizesByWheelId(wheelId);
     }
 
+    /**
+     * Vérifie qu'un tirage est refusé lorsque le poids total
+     * des lots est nul.
+     */
     @Test
     void shouldRejectSpinWhenPrizeWeightsAreZero() {
+        UUID merchantId = UUID.randomUUID();
         UUID wheelId = UUID.randomUUID();
         LocalDateTime now = LocalDateTime.now();
 
         Wheel wheel = new Wheel(
                 wheelId,
-                UUID.randomUUID(),
+                merchantId,
                 "Roue Fidely",
                 true,
                 0,
@@ -604,7 +881,7 @@ class WheelServiceTest {
                 now
         );
 
-        when(wheelRepository.findById(wheelId))
+        when(wheelRepository.findByMerchantId(merchantId))
                 .thenReturn(Optional.of(wheel));
 
         when(wheelRepository.findPrizesByWheelId(wheelId))
@@ -612,13 +889,16 @@ class WheelServiceTest {
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> wheelService.spin(wheelId)
+                () -> wheelService.spin(merchantId)
         );
 
         assertEquals(
                 "Wheel prizes must have a positive total probability weight",
                 exception.getMessage()
         );
+
+        verify(wheelRepository).findByMerchantId(merchantId);
+        verify(wheelRepository).findPrizesByWheelId(wheelId);
     }
 
     /**

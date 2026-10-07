@@ -115,14 +115,14 @@ public interface ILoyaltyService {
      * Aucun ticket n'est créé pour cette opération.</p>
      *
      * @param loyaltyId identifiant de la fidélité
-     * @param merchantId identifiant du marchand
+     * @param userId identifiant de l'utilisateur
      * @param customerId identifiant du client
      * @param amount montant de la transaction
      * @return la fidélité mise à jour après attribution des points
      */
     Loyalty addPointsManually(
             UUID loyaltyId,
-            UUID merchantId,
+            UUID userId,
             UUID customerId,
             BigDecimal amount
     );
