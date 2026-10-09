@@ -5,7 +5,9 @@ import com.fidely.backend.api.dtos.models.loyalties.rewards.UpdatePointRuleReque
 import com.fidely.backend.application.port.in.IPointRuleService;
 import com.fidely.backend.domain.models.loyalties.Rewards.PointRule;
 import jakarta.validation.Valid;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -40,6 +42,7 @@ public class PointRuleController {
      * @return règle de points actuellement applicable
      */
     @GetMapping("/me/points-rule")
+    @PreAuthorize("hasRole('MERCHANT_MANAGER')")
     public ResponseEntity<PointRuleResponse> getCurrentPointRule(
             Authentication authentication
     ) {
@@ -59,6 +62,7 @@ public class PointRuleController {
      * @return règle enregistrée
      */
     @PutMapping("/me/points-rule")
+    @PreAuthorize("hasRole('MERCHANT_MANAGER')")
     public ResponseEntity<PointRuleResponse> updatePointRule(
             @Valid @RequestBody UpdatePointRuleRequest request,
             Authentication authentication

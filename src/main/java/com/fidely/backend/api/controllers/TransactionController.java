@@ -22,6 +22,7 @@ import com.fidely.backend.domain.models.users.MerchantManager;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -128,6 +129,7 @@ public class TransactionController {
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE
     )
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<OcrTicketResponse> extractTicketFromOcr(
             @Valid @ModelAttribute OcrTicketRequest request
     ) {
@@ -178,7 +180,6 @@ public class TransactionController {
     }
 
     /**
-
      * Crée une transaction de fidélité à partir des données
      * d'un ticket préalablement extrait par OCR.
      *
@@ -196,6 +197,7 @@ public class TransactionController {
     @PostMapping(
             produces = MediaType.APPLICATION_JSON_VALUE
     )
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<CreateTransactionResponse> createTransaction(
             @Valid @RequestBody CreateTransactionRequest request
     ) {
@@ -236,6 +238,7 @@ public class TransactionController {
             path = "/manual",
             produces = MediaType.APPLICATION_JSON_VALUE
     )
+    @PreAuthorize("hasRole('MERCHANT_MANAGER')")
     public ResponseEntity<CreateTransactionResponse> createManualTransaction(
             @Valid @RequestBody ManualTransactionRequest request,
             Authentication authentication
@@ -266,6 +269,7 @@ public class TransactionController {
      * @return liste des transactions de fidélité du client
      */
     @GetMapping("/customers/me")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<List<LoyaltyTransactionResponse>> getCustomerTransactions(
             Authentication authentication
     ) {
@@ -288,6 +292,7 @@ public class TransactionController {
      * @return liste des transactions de fidélité du marchand
      */
     @GetMapping("/merchants/me")
+    @PreAuthorize("hasRole('MERCHANT_MANAGER')")
     public ResponseEntity<List<LoyaltyTransactionResponse>> getMerchantTransactions(
             Authentication authentication
     ) {
