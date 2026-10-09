@@ -26,8 +26,13 @@ public interface IPointRuleService {
 
     List<PointRule> getPointRulesByMerchant(UUID merchantId);
 
-    Optional<PointRule> getValidPointRule(
+    Optional<PointRule> getValidPointRuleByUser(
             UUID userId,
+            LocalDateTime date
+    );
+
+    Optional<PointRule> getValidPointRuleByMerchant(
+            UUID merchantId,
             LocalDateTime date
     );
 }

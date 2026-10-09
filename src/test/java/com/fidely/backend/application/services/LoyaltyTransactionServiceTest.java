@@ -24,14 +24,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-/**
-
- * Tests unitaires du service responsable des transactions
- * de fidélité.
- *
- * <p>Ces tests vérifient notamment l'attribution manuelle de points
- * à partir d'une transaction enregistrée directement par un marchand.</p>
- */
 @ExtendWith(MockitoExtension.class)
 class LoyaltyTransactionServiceTest {
 
@@ -59,7 +51,6 @@ class LoyaltyTransactionServiceTest {
     }
 
     /**
-
      * Vérifie qu'une transaction manuelle ajoute les points
      * correspondants à la fidélité et crée une transaction
      * sans référence à un ticket.
@@ -92,11 +83,10 @@ class LoyaltyTransactionServiceTest {
         when(loyaltyRepository.findById(loyaltyId))
                 .thenReturn(Optional.of(loyalty));
 
-        when(pointRuleService.getValidPointRule(
+        when(pointRuleService.getValidPointRuleByMerchant(
                 eq(merchantId),
                 any(LocalDateTime.class)
-        ))
-                .thenReturn(Optional.of(pointRule));
+        )).thenReturn(Optional.of(pointRule));
 
         when(pointRule.calculatePoints(amount))
                 .thenReturn(112);
@@ -150,7 +140,7 @@ class LoyaltyTransactionServiceTest {
                 .calculatePoints(amount);
 
         verify(pointRuleService)
-                .getValidPointRule(
+                .getValidPointRuleByMerchant(
                         eq(merchantId),
                         any(LocalDateTime.class)
                 );
@@ -417,11 +407,10 @@ class LoyaltyTransactionServiceTest {
         when(loyaltyRepository.findById(loyaltyId))
                 .thenReturn(Optional.of(loyalty));
 
-        when(pointRuleService.getValidPointRule(
+        when(pointRuleService.getValidPointRuleByMerchant(
                 eq(merchantId),
                 any(LocalDateTime.class)
-        ))
-                .thenReturn(Optional.empty());
+        )).thenReturn(Optional.empty());
 
         assertThatThrownBy(() ->
                 loyaltyTransactionService.addPointsManually(
@@ -437,7 +426,7 @@ class LoyaltyTransactionServiceTest {
                                 + merchantId
                 );
 
-        verify(pointRuleService).getValidPointRule(
+        verify(pointRuleService).getValidPointRuleByMerchant(
                 eq(merchantId),
                 any(LocalDateTime.class)
         );
@@ -466,11 +455,10 @@ class LoyaltyTransactionServiceTest {
         when(loyaltyRepository.findById(loyaltyId))
                 .thenReturn(Optional.of(loyalty));
 
-        when(pointRuleService.getValidPointRule(
+        when(pointRuleService.getValidPointRuleByMerchant(
                 eq(merchantId),
                 any(LocalDateTime.class)
-        ))
-                .thenReturn(Optional.of(pointRule));
+        )).thenReturn(Optional.of(pointRule));
 
         when(pointRule.calculatePoints(amount))
                 .thenReturn(0);
@@ -499,5 +487,4 @@ class LoyaltyTransactionServiceTest {
         verify(loyaltyRepository, never())
                 .saveTransaction(any(LoyaltyTransaction.class));
     }
-
 }

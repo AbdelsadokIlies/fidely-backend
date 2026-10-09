@@ -1,7 +1,7 @@
 package com.fidely.backend.api.dtos.models.loyalties.rewards;
 
-
 import com.fidely.backend.domain.models.loyalties.Rewards.RoundingMethod;
+import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -16,10 +16,17 @@ import java.time.LocalDateTime;
  * @param validTo date de fin de validité
  */
 public record UpdatePointRuleRequest(
+        @NotNull
         BigDecimal pointsPerCurrencyUnit,
+
+        @NotNull
         RoundingMethod roundingMethod,
+
         boolean active,
+
+        @NotNull
         LocalDateTime validFrom,
+
         LocalDateTime validTo
 ) {
 }

@@ -3,10 +3,8 @@ package com.fidely.backend.api.controllers;
 import com.fidely.backend.api.dtos.models.loyalties.rewards.PointRuleResponse;
 import com.fidely.backend.api.dtos.models.loyalties.rewards.UpdatePointRuleRequest;
 import com.fidely.backend.application.port.in.IPointRuleService;
-import com.fidely.backend.application.port.out.IUserRepository;
 import com.fidely.backend.domain.models.loyalties.Rewards.PointRule;
-import com.fidely.backend.domain.models.users.MerchantManager;
-import com.fidely.backend.domain.models.users.User;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -48,7 +46,7 @@ public class PointRuleController {
         UUID userId = (UUID) authentication.getPrincipal();
 
         return pointRuleService
-                .getValidPointRule(userId, LocalDateTime.now())
+                .getValidPointRuleByUser(userId, LocalDateTime.now())
                 .map(pointRule -> ResponseEntity.ok(toResponse(pointRule)))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -62,7 +60,7 @@ public class PointRuleController {
      */
     @PutMapping("/me/points-rule")
     public ResponseEntity<PointRuleResponse> updatePointRule(
-            @RequestBody UpdatePointRuleRequest request,
+            @Valid @RequestBody UpdatePointRuleRequest request,
             Authentication authentication
     ) {
         UUID userId = (UUID) authentication.getPrincipal();

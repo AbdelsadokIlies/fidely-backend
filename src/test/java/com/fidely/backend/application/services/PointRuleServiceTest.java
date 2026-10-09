@@ -42,34 +42,42 @@ class PointRuleServiceTest {
 
     @Test
     void shouldCreatePointRule() {
+        UUID userId = UUID.randomUUID();
         UUID merchantId = UUID.randomUUID();
+
         LocalDateTime validFrom =
                 LocalDateTime.of(2026, 1, 1, 0, 0);
+        LocalDateTime validTo =
+                LocalDateTime.of(2026, 12, 31, 23, 59);
 
-        PointRule pointRule = new PointRule(
-                UUID.randomUUID(),
+        when(userRepository.getMerchantId(userId))
+                .thenReturn(merchantId);
+        when(pointRuleRepository.findByMerchantId(merchantId))
+                .thenReturn(List.of());
+
+        when(pointRuleRepository.save(
+                any(PointRule.class),
+                eq(merchantId)
+        )).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PointRule result = pointRuleService.createPointRule(
+                userId,
                 new BigDecimal("1.0000"),
                 RoundingMethod.FLOOR,
                 true,
                 validFrom,
-                LocalDateTime.of(2026, 12, 31, 23, 59),
-                validFrom);
+                validTo,
+                validFrom
+        );
 
-        PointRule result =
-                pointRuleService.createPointRule(
-                        UUID.randomUUID(),
-                        new BigDecimal("1.0000"),
-                        RoundingMethod.FLOOR,
-                        true,
-                        validFrom,
-                        LocalDateTime.of(2026, 12, 31, 23, 59),
-                        validFrom
-                );
+        assertThat(result.getPointsPerCurrencyUnit())
+                .isEqualByComparingTo("1.0000");
+        assertThat(result.getRoundingMethod())
+                .isEqualTo(RoundingMethod.FLOOR);
+        assertThat(result.isActive()).isTrue();
 
-        assertThat(result).isSameAs(pointRule);
-
-        verify(pointRuleRepository)
-                .save(pointRule, merchantId);
+        verify(userRepository).getMerchantId(userId);
+        verify(pointRuleRepository).save(result, merchantId);
     }
 
     @Test
@@ -85,29 +93,29 @@ class PointRuleServiceTest {
                 true,
                 validFrom,
                 LocalDateTime.of(2026, 12, 31, 23, 59),
-                validFrom);
+                validFrom
+        );
+
         PointRule pointRule2 = new PointRule(
                 UUID.randomUUID(),
-                new BigDecimal("1.0000"),
-                RoundingMethod.FLOOR,
+                new BigDecimal("2.0000"),
+                RoundingMethod.ROUND,
                 true,
                 validFrom,
                 LocalDateTime.of(2026, 12, 31, 23, 59),
-                validFrom);
+                validFrom
+        );
 
         when(pointRuleRepository.findByMerchantId(merchantId))
                 .thenReturn(List.of(pointRule1, pointRule2));
 
         List<PointRule> result =
-                pointRuleService.getPointRulesByMerchant(
-                        merchantId
-                );
+                pointRuleService.getPointRulesByMerchant(merchantId);
 
         assertThat(result)
                 .containsExactly(pointRule1, pointRule2);
 
-        verify(pointRuleRepository)
-                .findByMerchantId(merchantId);
+        verify(pointRuleRepository).findByMerchantId(merchantId);
     }
 
     @Test
@@ -118,116 +126,57 @@ class PointRuleServiceTest {
                 .thenReturn(List.of());
 
         List<PointRule> result =
-                pointRuleService.getPointRulesByMerchant(
-                        merchantId
-                );
+                pointRuleService.getPointRulesByMerchant(merchantId);
 
         assertThat(result).isEmpty();
 
-        verify(pointRuleRepository)
-                .findByMerchantId(merchantId);
+        verify(pointRuleRepository).findByMerchantId(merchantId);
     }
 
     @Test
-    void shouldGetValidPointRule() {
+    void shouldGetValidPointRuleByUser() {
+        UUID userId = UUID.randomUUID();
         UUID merchantId = UUID.randomUUID();
 
         LocalDateTime validFrom =
                 LocalDateTime.of(2026, 1, 1, 0, 0);
-
         LocalDateTime date =
                 LocalDateTime.of(2026, 6, 15, 12, 0);
 
-        PointRule pointRule =
-                new PointRule(
-                        UUID.randomUUID(),
-                        new BigDecimal("1.0000"),
-                        RoundingMethod.FLOOR,
-                        true,
-                        validFrom,
-                        LocalDateTime.of(2026, 12, 31, 23, 59),
-                        validFrom
-                );
+        PointRule pointRule = new PointRule(
+                UUID.randomUUID(),
+                new BigDecimal("1.0000"),
+                RoundingMethod.FLOOR,
+                true,
+                validFrom,
+                LocalDateTime.of(2026, 12, 31, 23, 59),
+                validFrom
+        );
 
+        when(userRepository.getMerchantId(userId))
+                .thenReturn(merchantId);
         when(pointRuleRepository.findByMerchantId(merchantId))
                 .thenReturn(List.of(pointRule));
 
         Optional<PointRule> result =
-                pointRuleService.getValidPointRule(
-                        merchantId,
-                        date
-                );
+                pointRuleService.getValidPointRuleByUser(userId, date);
 
         assertThat(result)
                 .isPresent()
                 .containsSame(pointRule);
 
-        verify(pointRuleRepository)
-                .findByMerchantId(merchantId);
+        verify(userRepository).getMerchantId(userId);
+        verify(pointRuleRepository).findByMerchantId(merchantId);
     }
 
     @Test
-    void shouldReturnEmptyWhenNoPointRuleIsValid() {
+    void shouldGetValidPointRuleByMerchant() {
         UUID merchantId = UUID.randomUUID();
 
-        PointRule pointRule =
-                new PointRule(
-                        UUID.randomUUID(),
-                        new BigDecimal("1.0000"),
-                        RoundingMethod.FLOOR,
-                        true,
-                        LocalDateTime.of(2026, 1, 1, 0, 0),
-                        LocalDateTime.of(2026, 3, 31, 23, 59),
-                        LocalDateTime.of(2026, 1, 1, 0, 0)
-                );
-
-        LocalDateTime date =
-                LocalDateTime.of(2026, 6, 15, 12, 0);
-
-        when(pointRuleRepository.findByMerchantId(merchantId))
-                .thenReturn(List.of(pointRule));
-
-        Optional<PointRule> result =
-                pointRuleService.getValidPointRule(
-                        merchantId,
-                        date
-                );
-
-        assertThat(result).isEmpty();
-    }
-
-    @Test
-    void shouldReturnEmptyWhenPointRuleIsInactive() {
-        UUID merchantId = UUID.randomUUID();
-
-        PointRule pointRule =
-                new PointRule(
-                        UUID.randomUUID(),
-                        new BigDecimal("1.0000"),
-                        RoundingMethod.FLOOR,
-                        false,
-                        LocalDateTime.of(2026, 1, 1, 0, 0),
-                        LocalDateTime.of(2026, 12, 31, 23, 59),
-                        LocalDateTime.of(2026, 1, 1, 0, 0)
-                );
-
-        when(pointRuleRepository.findByMerchantId(merchantId))
-                .thenReturn(List.of(pointRule));
-
-        Optional<PointRule> result =
-                pointRuleService.getValidPointRule(
-                        merchantId,
-                        LocalDateTime.of(2026, 6, 15, 12, 0)
-                );
-
-        assertThat(result).isEmpty();
-    }
-
-    @Test
-    void shouldCreatePointRuleWhenNoActiveRuleExists() {
-        UUID merchantId = UUID.randomUUID();
         LocalDateTime validFrom =
                 LocalDateTime.of(2026, 1, 1, 0, 0);
+        LocalDateTime date =
+                LocalDateTime.of(2026, 6, 15, 12, 0);
 
         PointRule pointRule = new PointRule(
                 UUID.randomUUID(),
@@ -240,36 +189,164 @@ class PointRuleServiceTest {
         );
 
         when(pointRuleRepository.findByMerchantId(merchantId))
-                .thenReturn(List.of());
+                .thenReturn(List.of(pointRule));
 
-        when(pointRuleRepository.save(pointRule, merchantId))
-                .thenReturn(pointRule);
+        Optional<PointRule> result =
+                pointRuleService.getValidPointRuleByMerchant(
+                        merchantId,
+                        date
+                );
 
-        PointRule result = pointRuleService.createPointRule(
+        assertThat(result)
+                .isPresent()
+                .containsSame(pointRule);
+
+        verify(pointRuleRepository).findByMerchantId(merchantId);
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void shouldReturnEmptyWhenNoPointRuleIsValid() {
+        UUID merchantId = UUID.randomUUID();
+
+        PointRule pointRule = new PointRule(
                 UUID.randomUUID(),
                 new BigDecimal("1.0000"),
                 RoundingMethod.FLOOR,
                 true,
-                validFrom,
+                LocalDateTime.of(2026, 1, 1, 0, 0),
+                LocalDateTime.of(2026, 3, 31, 23, 59),
+                LocalDateTime.of(2026, 1, 1, 0, 0)
+        );
+
+        LocalDateTime date =
+                LocalDateTime.of(2026, 6, 15, 12, 0);
+
+        when(pointRuleRepository.findByMerchantId(merchantId))
+                .thenReturn(List.of(pointRule));
+
+        Optional<PointRule> result =
+                pointRuleService.getValidPointRuleByMerchant(
+                        merchantId,
+                        date
+                );
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void shouldReturnEmptyWhenPointRuleIsInactive() {
+        UUID merchantId = UUID.randomUUID();
+
+        PointRule pointRule = new PointRule(
+                UUID.randomUUID(),
+                new BigDecimal("1.0000"),
+                RoundingMethod.FLOOR,
+                false,
+                LocalDateTime.of(2026, 1, 1, 0, 0),
                 LocalDateTime.of(2026, 12, 31, 23, 59),
+                LocalDateTime.of(2026, 1, 1, 0, 0)
+        );
+
+        when(pointRuleRepository.findByMerchantId(merchantId))
+                .thenReturn(List.of(pointRule));
+
+        Optional<PointRule> result =
+                pointRuleService.getValidPointRuleByMerchant(
+                        merchantId,
+                        LocalDateTime.of(2026, 6, 15, 12, 0)
+                );
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void shouldRejectNullMerchantIdWhenGettingRules() {
+        assertThatThrownBy(
+                () -> pointRuleService.getPointRulesByMerchant(null)
+        )
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Merchant id cannot be null");
+
+        verifyNoInteractions(pointRuleRepository);
+    }
+
+    @Test
+    void shouldRejectNullMerchantIdWhenGettingValidRule() {
+        assertThatThrownBy(
+                () -> pointRuleService.getValidPointRuleByMerchant(
+                        null,
+                        LocalDateTime.of(2026, 6, 15, 12, 0)
+                )
+        )
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("MerchantId id cannot be null");
+
+        verifyNoInteractions(pointRuleRepository);
+    }
+
+    @Test
+    void shouldRejectNullDateWhenGettingValidRule() {
+        assertThatThrownBy(
+                () -> pointRuleService.getValidPointRuleByMerchant(
+                        UUID.randomUUID(),
+                        null
+                )
+        )
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Date cannot be null");
+
+        verifyNoInteractions(pointRuleRepository);
+    }
+
+    @Test
+    void shouldCreatePointRuleWhenNoActiveRuleExists() {
+        UUID userId = UUID.randomUUID();
+        UUID merchantId = UUID.randomUUID();
+
+        LocalDateTime validFrom =
+                LocalDateTime.of(2026, 1, 1, 0, 0);
+        LocalDateTime validTo =
+                LocalDateTime.of(2026, 12, 31, 23, 59);
+
+        when(userRepository.getMerchantId(userId))
+                .thenReturn(merchantId);
+        when(pointRuleRepository.findByMerchantId(merchantId))
+                .thenReturn(List.of());
+
+        when(pointRuleRepository.save(
+                any(PointRule.class),
+                eq(merchantId)
+        )).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PointRule result = pointRuleService.createPointRule(
+                userId,
+                new BigDecimal("1.0000"),
+                RoundingMethod.FLOOR,
+                true,
+                validFrom,
+                validTo,
                 validFrom
         );
 
-        assertThat(result).isSameAs(pointRule);
+        assertThat(result.isActive()).isTrue();
+        assertThat(result.getValidFrom()).isEqualTo(validFrom);
+        assertThat(result.getValidTo()).isEqualTo(validTo);
 
-        verify(pointRuleRepository)
-                .save(pointRule, merchantId);
+        verify(pointRuleRepository).save(result, merchantId);
     }
 
     @Test
     void shouldCloseCurrentActiveRuleBeforeCreatingNewRule() {
+        UUID userId = UUID.randomUUID();
         UUID merchantId = UUID.randomUUID();
 
         LocalDateTime oldValidFrom =
                 LocalDateTime.of(2026, 1, 1, 0, 0);
-
         LocalDateTime newValidFrom =
                 LocalDateTime.of(2026, 6, 1, 0, 0);
+        LocalDateTime newValidTo =
+                LocalDateTime.of(2026, 12, 31, 23, 59);
 
         PointRule currentRule = new PointRule(
                 UUID.randomUUID(),
@@ -277,20 +354,12 @@ class PointRuleServiceTest {
                 RoundingMethod.FLOOR,
                 true,
                 oldValidFrom,
-                LocalDateTime.of(2026, 12, 31, 23, 59),
+                newValidTo,
                 oldValidFrom
         );
 
-        PointRule newRule = new PointRule(
-                UUID.randomUUID(),
-                new BigDecimal("2.0000"),
-                RoundingMethod.ROUND,
-                true,
-                newValidFrom,
-                null,
-                newValidFrom
-        );
-
+        when(userRepository.getMerchantId(userId))
+                .thenReturn(merchantId);
         when(pointRuleRepository.findByMerchantId(merchantId))
                 .thenReturn(List.of(currentRule));
 
@@ -299,20 +368,22 @@ class PointRuleServiceTest {
                 eq(merchantId)
         )).thenAnswer(invocation -> invocation.getArgument(0));
 
-        LocalDateTime validFrom =
-                LocalDateTime.of(2026, 1, 1, 0, 0);
-
         PointRule result = pointRuleService.createPointRule(
-                UUID.randomUUID(),
-                new BigDecimal("1.0000"),
-                RoundingMethod.FLOOR,
+                userId,
+                new BigDecimal("2.0000"),
+                RoundingMethod.ROUND,
                 true,
-                validFrom,
-                LocalDateTime.of(2026, 12, 31, 23, 59),
-                validFrom
+                newValidFrom,
+                null,
+                newValidFrom
         );
 
-        assertThat(result).isSameAs(newRule);
+        assertThat(result.getPointsPerCurrencyUnit())
+                .isEqualByComparingTo("2.0000");
+        assertThat(result.getRoundingMethod())
+                .isEqualTo(RoundingMethod.ROUND);
+        assertThat(result.isActive()).isTrue();
+        assertThat(result.getValidFrom()).isEqualTo(newValidFrom);
 
         ArgumentCaptor<PointRule> captor =
                 ArgumentCaptor.forClass(PointRule.class);
@@ -323,20 +394,21 @@ class PointRuleServiceTest {
         List<PointRule> savedRules = captor.getAllValues();
 
         PointRule closedRule = savedRules.get(0);
+        PointRule newRule = savedRules.get(1);
 
         assertThat(closedRule.getId())
                 .isEqualTo(currentRule.getId());
+        assertThat(closedRule.isActive()).isFalse();
+        assertThat(closedRule.getValidFrom()).isEqualTo(oldValidFrom);
+        assertThat(closedRule.getValidTo()).isEqualTo(newValidFrom);
 
-        assertThat(closedRule.isActive())
-                .isFalse();
-
-        assertThat(closedRule.getValidFrom())
-                .isEqualTo(oldValidFrom);
-
-        assertThat(closedRule.getValidTo())
-                .isEqualTo(newValidFrom);
-
-        assertThat(savedRules.get(1))
-                .isSameAs(newRule);
+        assertThat(newRule.getId()).isNotEqualTo(currentRule.getId());
+        assertThat(newRule.getPointsPerCurrencyUnit())
+                .isEqualByComparingTo("2.0000");
+        assertThat(newRule.getRoundingMethod())
+                .isEqualTo(RoundingMethod.ROUND);
+        assertThat(newRule.isActive()).isTrue();
+        assertThat(newRule.getValidFrom()).isEqualTo(newValidFrom);
+        assertThat(newRule.getValidTo()).isNull();
     }
 }

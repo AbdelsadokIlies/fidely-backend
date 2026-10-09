@@ -45,7 +45,7 @@ class PointRuleControllerWebMvcTest {
 
         PointRule pointRule = createPointRule();
 
-        when(pointRuleService.getValidPointRule(
+        when(pointRuleService.getValidPointRuleByUser(
                 eq(userId),
                 any(LocalDateTime.class)
         )).thenReturn(java.util.Optional.of(pointRule));
@@ -77,7 +77,7 @@ class PointRuleControllerWebMvcTest {
             throws Exception {
         UUID userId = UUID.randomUUID();
 
-        when(pointRuleService.getValidPointRule(
+        when(pointRuleService.getValidPointRuleByUser(
                 eq(userId),
                 any(LocalDateTime.class)
         )).thenReturn(java.util.Optional.empty());

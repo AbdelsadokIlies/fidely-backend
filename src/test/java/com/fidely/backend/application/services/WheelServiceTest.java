@@ -329,9 +329,6 @@ class WheelServiceTest {
      */
     @Test
     void shouldRejectBlankPrizeLabel() {
-        when(userRepository.findById(userId))
-                .thenReturn(Optional.of(merchantManager));
-
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
                 () -> wheelService.savePrizeForManager(
@@ -355,9 +352,6 @@ class WheelServiceTest {
      */
     @Test
     void shouldRejectNegativePrizeProbabilityWeight() {
-        when(userRepository.findById(userId))
-                .thenReturn(Optional.of(merchantManager));
-
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
                 () -> wheelService.savePrizeForManager(
@@ -478,8 +472,9 @@ class WheelServiceTest {
         when(wheelRepository.findByMerchantId(merchantId))
                 .thenReturn(Optional.of(wheel));
 
+        // Le lot externe ne doit pas apparaître dans les lots de cette roue.
         when(wheelRepository.findPrizesByWheelId(wheelId))
-                .thenReturn(List.of(prize));
+                .thenReturn(List.of());
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,

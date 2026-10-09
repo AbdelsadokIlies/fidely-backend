@@ -114,14 +114,14 @@ public class PointRuleService implements IPointRuleService {
     }
 
     /**
-     * Récupère la règle valide pour un marchand à une date donnée.
+     * Récupère la règle valide pour un commerce à une date donnée.
      *
      * @param userId identifiant de l'utilisateur
      * @param date date à vérifier
      * @return règle valide si elle existe
      */
     @Override
-    public Optional<PointRule> getValidPointRule(
+    public Optional<PointRule> getValidPointRuleByUser(
             UUID userId,
             LocalDateTime date
     ) {
@@ -138,6 +138,37 @@ public class PointRuleService implements IPointRuleService {
         }
 
         UUID merchantId = userRepository.getMerchantId(userId);
+
+        return pointRuleRepository
+                .findByMerchantId(merchantId)
+                .stream()
+                .filter(pointRule -> pointRule.isValidAt(date))
+                .findFirst();
+    }
+
+    /**
+     * Récupère la règle valide pour un commerce à une date donnée.
+     *
+     * @param merchantId identifiant du commerce
+     * @param date date à vérifier
+     * @return règle valide si elle existe
+     */
+    @Override
+    public Optional<PointRule> getValidPointRuleByMerchant(
+            UUID merchantId,
+            LocalDateTime date
+    ) {
+        if (merchantId == null) {
+            throw new IllegalArgumentException(
+                    "MerchantId id cannot be null"
+            );
+        }
+
+        if (date == null) {
+            throw new IllegalArgumentException(
+                    "Date cannot be null"
+            );
+        }
 
         return pointRuleRepository
                 .findByMerchantId(merchantId)

@@ -106,7 +106,7 @@ public class LoyaltyTransactionService {
                 ticket.getTicketTime()
         );
 
-        PointRule pointRule = pointRuleService.getValidPointRule(
+        PointRule pointRule = pointRuleService.getValidPointRuleByMerchant(
                 ticket.getMerchantId(),
                 ticketDateTime
         ).orElseThrow(() -> new IllegalStateException(
@@ -217,7 +217,7 @@ public class LoyaltyTransactionService {
 
         LocalDateTime transactionDateTime = LocalDateTime.now();
 
-        PointRule pointRule = pointRuleService.getValidPointRule(
+        PointRule pointRule = pointRuleService.getValidPointRuleByMerchant(
                 merchantId,
                 transactionDateTime
         ).orElseThrow(() -> new IllegalStateException(

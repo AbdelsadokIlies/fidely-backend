@@ -32,12 +32,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
-/**
- * Tests unitaires du controller REST des transactions.
- */
 @ExtendWith(MockitoExtension.class)
 class TransactionControllerTest {
 
@@ -119,12 +115,11 @@ class TransactionControllerTest {
         when(ocrTicketResponseMapper.toResponse(ticket))
                 .thenReturn(response);
 
-        OcrTicketRequest request =
-                new OcrTicketRequest(
-                        merchantId,
-                        customerId,
-                        image
-                );
+        OcrTicketRequest request = new OcrTicketRequest(
+                merchantId,
+                customerId,
+                image
+        );
 
         ResponseEntity<OcrTicketResponse> result =
                 transactionController.extractTicketFromOcr(request);
@@ -142,7 +137,9 @@ class TransactionControllerTest {
     }
 
     /**
-     * Vérifie qu'un marchand peut enregistrer une transaction manuelle.
+     * Vérifie que la création d'une transaction manuelle
+     * transmet au service les données de la requête et l'identifiant
+     * de l'utilisateur authentifié utilisé par le controller.
      */
     @Test
     void shouldCreateManualTransactionAsMerchant() {
@@ -151,13 +148,12 @@ class TransactionControllerTest {
         UUID loyaltyId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
 
-        ManualTransactionRequest request =
-                new ManualTransactionRequest(
-                        loyaltyId,
-                        merchantId,
-                        customerId,
-                        new BigDecimal("112.00")
-                );
+        ManualTransactionRequest request = new ManualTransactionRequest(
+                loyaltyId,
+                merchantId,
+                customerId,
+                new BigDecimal("112.00")
+        );
 
         Loyalty loyalty = new Loyalty(
                 loyaltyId,
@@ -168,30 +164,96 @@ class TransactionControllerTest {
                 LocalDateTime.of(2026, 6, 15, 12, 31)
         );
 
-        CreateTransactionResponse response =
-                new CreateTransactionResponse(
-                        loyaltyId,
-                        customerId,
-                        merchantId,
-                        112,
-                        loyalty.getUpdatedAt()
-                );
+        CreateTransactionResponse response = new CreateTransactionResponse(
+                loyaltyId,
+                customerId,
+                merchantId,
+                112,
+                loyalty.getUpdatedAt()
+        );
 
-        Authentication authentication =
-                createAuthentication(userId);
-
-        when(userRepository.findById(userId))
-                .thenReturn(Optional.of(merchantManager));
-
-        when(merchantManager.getMerchantId())
-                .thenReturn(merchantId);
+        Authentication authentication = createAuthentication(userId);
 
         when(manualTransactionRequestMapper.toRequest(request))
                 .thenReturn(request);
 
         when(loyaltyService.addPointsManually(
                 loyaltyId,
+                userId,
+                customerId,
+                new BigDecimal("112.00")
+        )).thenReturn(loyalty);
+
+        when(createTransactionResponseMapper.toResponse(loyalty))
+                .thenReturn(response);
+
+        ResponseEntity<CreateTransactionResponse> result =
+                transactionController.createManualTransaction(
+                        request,
+                        authentication
+                );
+
+        assertThat(result.getStatusCode().value()).isEqualTo(200);
+        assertThat(result.getBody()).isSameAs(response);
+
+        verify(manualTransactionRequestMapper).toRequest(request);
+
+        verify(loyaltyService).addPointsManually(
+                loyaltyId,
+                userId,
+                customerId,
+                new BigDecimal("112.00")
+        );
+
+        verify(createTransactionResponseMapper).toResponse(loyalty);
+    }
+
+    /**
+     * Vérifie le comportement actuel du controller lorsque
+     * le principal authentifié n'est pas un marchand.
+     *
+     * Le controller ne vérifie pas lui-même le rôle du principal :
+     * il transmet son identifiant au service.
+     */
+    @Test
+    void shouldCallServiceWhenUserIsNotMerchant() {
+        UUID userId = UUID.randomUUID();
+        UUID loyaltyId = UUID.randomUUID();
+        UUID merchantId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+
+        ManualTransactionRequest request = new ManualTransactionRequest(
+                loyaltyId,
                 merchantId,
+                customerId,
+                new BigDecimal("112.00")
+        );
+
+        Loyalty loyalty = new Loyalty(
+                loyaltyId,
+                customerId,
+                merchantId,
+                112,
+                LocalDateTime.of(2026, 6, 15, 12, 30),
+                LocalDateTime.of(2026, 6, 15, 12, 31)
+        );
+
+        CreateTransactionResponse response = new CreateTransactionResponse(
+                loyaltyId,
+                customerId,
+                merchantId,
+                112,
+                loyalty.getUpdatedAt()
+        );
+
+        Authentication authentication = createAuthentication(userId);
+
+        when(manualTransactionRequestMapper.toRequest(request))
+                .thenReturn(request);
+
+        when(loyaltyService.addPointsManually(
+                loyaltyId,
+                userId,
                 customerId,
                 new BigDecimal("112.00")
         )).thenReturn(loyalty);
@@ -210,90 +272,93 @@ class TransactionControllerTest {
 
         verify(loyaltyService).addPointsManually(
                 loyaltyId,
-                merchantId,
+                userId,
                 customerId,
                 new BigDecimal("112.00")
         );
+
+        verify(createTransactionResponseMapper).toResponse(loyalty);
+
+        verifyNoInteractions(userRepository);
+        verifyNoInteractions(merchantManager);
     }
 
     /**
-     * Vérifie qu'un utilisateur qui n'est pas marchand
-     * ne peut pas enregistrer une transaction manuelle.
+     * Vérifie que le controller transmet l'identifiant du principal
+     * même lorsque l'identifiant du marchand dans la requête est différent.
+     *
+     * La vérification de cohérence entre ces identifiants n'est pas
+     * effectuée par le controller actuel.
      */
     @Test
-    void shouldRejectManualTransactionWhenUserIsNotMerchant() {
+    void shouldCallServiceWhenRequestTargetsAnotherMerchant() {
         UUID userId = UUID.randomUUID();
-
-        ManualTransactionRequest request =
-                new ManualTransactionRequest(
-                        UUID.randomUUID(),
-                        UUID.randomUUID(),
-                        UUID.randomUUID(),
-                        new BigDecimal("112.00")
-                );
-
-        Authentication authentication =
-                createAuthentication(userId);
-
-        when(userRepository.findById(userId))
-                .thenReturn(Optional.empty());
-
-        assertThatThrownBy(() ->
-                transactionController.createManualTransaction(
-                        request,
-                        authentication
-                )
-        )
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage(
-                        "L'utilisateur authentifié n'est pas un marchand."
-                );
-
-        verifyNoInteractions(loyaltyService);
-    }
-
-    /**
-     * Vérifie qu'un marchand ne peut pas enregistrer
-     * une transaction pour un autre marchand.
-     */
-    @Test
-    void shouldRejectManualTransactionForAnotherMerchant() {
-        UUID userId = UUID.randomUUID();
-        UUID authenticatedMerchantId = UUID.randomUUID();
         UUID requestMerchantId = UUID.randomUUID();
+        UUID otherMerchantId = UUID.randomUUID();
+        UUID loyaltyId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
 
-        ManualTransactionRequest request =
-                new ManualTransactionRequest(
-                        UUID.randomUUID(),
-                        requestMerchantId,
-                        UUID.randomUUID(),
-                        new BigDecimal("112.00")
-                );
+        assertThat(requestMerchantId).isNotEqualTo(otherMerchantId);
 
-        Authentication authentication =
-                createAuthentication(userId);
+        ManualTransactionRequest request = new ManualTransactionRequest(
+                loyaltyId,
+                requestMerchantId,
+                customerId,
+                new BigDecimal("112.00")
+        );
 
-        when(userRepository.findById(userId))
-                .thenReturn(Optional.of(merchantManager));
+        Loyalty loyalty = new Loyalty(
+                loyaltyId,
+                customerId,
+                requestMerchantId,
+                112,
+                LocalDateTime.of(2026, 6, 15, 12, 30),
+                LocalDateTime.of(2026, 6, 15, 12, 31)
+        );
 
-        when(merchantManager.getMerchantId())
-                .thenReturn(authenticatedMerchantId);
+        CreateTransactionResponse response = new CreateTransactionResponse(
+                loyaltyId,
+                customerId,
+                requestMerchantId,
+                112,
+                loyalty.getUpdatedAt()
+        );
+
+        Authentication authentication = createAuthentication(userId);
 
         when(manualTransactionRequestMapper.toRequest(request))
                 .thenReturn(request);
 
-        assertThatThrownBy(() ->
+        when(loyaltyService.addPointsManually(
+                loyaltyId,
+                userId,
+                customerId,
+                new BigDecimal("112.00")
+        )).thenReturn(loyalty);
+
+        when(createTransactionResponseMapper.toResponse(loyalty))
+                .thenReturn(response);
+
+        ResponseEntity<CreateTransactionResponse> result =
                 transactionController.createManualTransaction(
                         request,
                         authentication
-                )
-        )
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage(
-                        "Le marchand fourni ne correspond pas au marchand authentifié."
                 );
 
-        verifyNoInteractions(loyaltyService);
+        assertThat(result.getStatusCode().value()).isEqualTo(200);
+        assertThat(result.getBody()).isSameAs(response);
+
+        verify(loyaltyService).addPointsManually(
+                loyaltyId,
+                userId,
+                customerId,
+                new BigDecimal("112.00")
+        );
+
+        verify(createTransactionResponseMapper).toResponse(loyalty);
+
+        verifyNoInteractions(userRepository);
+        verifyNoInteractions(merchantManager);
     }
 
     /**

@@ -51,17 +51,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Tests web du controller REST des transactions.
- */
 @WebMvcTest(TransactionController.class)
 class TransactionControllerWebMvcTest {
 
-    private static final String ACCESS_TOKEN_COOKIE =
-            "fidely_access_token";
-
-    private static final String ACCESS_TOKEN =
-            "test-access-token";
+    private static final String ACCESS_TOKEN_COOKIE = "fidely_access_token";
+    private static final String ACCESS_TOKEN = "test-access-token";
 
     @Autowired
     private MockMvc mockMvc;
@@ -99,12 +93,6 @@ class TransactionControllerWebMvcTest {
     @MockitoBean
     private MerchantManager merchantManager;
 
-    /**
-     * Vérifie que le endpoint OCR accepte une requête multipart
-     * valide et retourne les données extraites au format JSON.
-     *
-     * @throws Exception si l'exécution de la requête HTTP échoue
-     */
     @Test
     void shouldExtractTicketFromOcr() throws Exception {
         UUID userId = UUID.randomUUID();
@@ -123,6 +111,20 @@ class TransactionControllerWebMvcTest {
                 imageContent
         );
 
+        Ticket ticket = new Ticket(
+                ticketId,
+                merchantId,
+                customerId,
+                "TICKET-001",
+                LocalDate.of(2026, 6, 15),
+                LocalTime.of(12, 30),
+                new BigDecimal("112.00"),
+                "OCR TEXT",
+                TicketStatus.PENDING,
+                null,
+                LocalDateTime.of(2026, 6, 15, 12, 30)
+        );
+
         OcrTicketResponse response = new OcrTicketResponse(
                 ticketId,
                 merchantId,
@@ -139,21 +141,7 @@ class TransactionControllerWebMvcTest {
                 any(byte[].class),
                 eq(merchantId),
                 eq(customerId)
-        )).thenReturn(
-                new Ticket(
-                        ticketId,
-                        merchantId,
-                        customerId,
-                        "TICKET-001",
-                        LocalDate.of(2026, 6, 15),
-                        LocalTime.of(12, 30),
-                        new BigDecimal("112.00"),
-                        "OCR TEXT",
-                        TicketStatus.PENDING,
-                        null,
-                        LocalDateTime.of(2026, 6, 15, 12, 30)
-                )
-        );
+        )).thenReturn(ticket);
 
         when(ocrTicketResponseMapper.toResponse(any()))
                 .thenReturn(response);
@@ -169,41 +157,27 @@ class TransactionControllerWebMvcTest {
                 .andExpect(content().contentTypeCompatibleWith(
                         MediaType.APPLICATION_JSON_VALUE
                 ))
-                .andExpect(jsonPath("$.id")
-                        .value(ticketId.toString()))
-                .andExpect(jsonPath("$.merchantId")
-                        .value(merchantId.toString()))
-                .andExpect(jsonPath("$.customerId")
-                        .value(customerId.toString()))
-                .andExpect(jsonPath("$.ticketNumber")
-                        .value("TICKET-001"))
-                .andExpect(jsonPath("$.amount")
-                        .value(112.00))
-                .andExpect(jsonPath("$.status")
-                        .value("PENDING"));
+                .andExpect(jsonPath("$.id").value(ticketId.toString()))
+                .andExpect(jsonPath("$.merchantId").value(merchantId.toString()))
+                .andExpect(jsonPath("$.customerId").value(customerId.toString()))
+                .andExpect(jsonPath("$.ticketNumber").value("TICKET-001"))
+                .andExpect(jsonPath("$.amount").value(112.00))
+                .andExpect(jsonPath("$.status").value("PENDING"));
     }
 
-    /**
-     * Vérifie que le endpoint de création d'une transaction
-     * accepte une requête JSON valide.
-     *
-     * @throws Exception si l'exécution de la requête HTTP échoue
-     */
     @Test
     void shouldCreateTransaction() throws Exception {
         UUID customerId = UUID.randomUUID();
-
         authenticateAsCustomer(customerId);
 
         UUID loyaltyId = UUID.randomUUID();
         UUID merchantId = UUID.randomUUID();
-        UUID ticketCustomerId = customerId;
         UUID ticketId = UUID.randomUUID();
 
         Ticket ticket = new Ticket(
                 ticketId,
                 merchantId,
-                ticketCustomerId,
+                customerId,
                 "TICKET-001",
                 LocalDate.of(2026, 6, 15),
                 LocalTime.of(12, 30),
@@ -216,21 +190,20 @@ class TransactionControllerWebMvcTest {
 
         Loyalty loyalty = new Loyalty(
                 loyaltyId,
-                ticketCustomerId,
+                customerId,
                 merchantId,
                 112,
                 LocalDateTime.of(2026, 6, 15, 12, 30),
                 LocalDateTime.of(2026, 6, 15, 12, 31)
         );
 
-        CreateTransactionResponse response =
-                new CreateTransactionResponse(
-                        loyaltyId,
-                        ticketCustomerId,
-                        merchantId,
-                        112,
-                        loyalty.getUpdatedAt()
-                );
+        CreateTransactionResponse response = new CreateTransactionResponse(
+                loyaltyId,
+                customerId,
+                merchantId,
+                112,
+                loyalty.getUpdatedAt()
+        );
 
         when(createTransactionRequestMapper.toTicket(any(
                 CreateTransactionRequest.class
@@ -262,33 +235,22 @@ class TransactionControllerWebMvcTest {
                                     """.formatted(
                                         loyaltyId,
                                         merchantId,
-                                        ticketCustomerId
+                                        customerId
                                 ))
                 )
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(
                         MediaType.APPLICATION_JSON_VALUE
                 ))
-                .andExpect(jsonPath("$.loyaltyId")
-                        .value(loyaltyId.toString()))
-                .andExpect(jsonPath("$.customerId")
-                        .value(ticketCustomerId.toString()))
-                .andExpect(jsonPath("$.merchantId")
-                        .value(merchantId.toString()))
-                .andExpect(jsonPath("$.pointsBalance")
-                        .value(112));
+                .andExpect(jsonPath("$.loyaltyId").value(loyaltyId.toString()))
+                .andExpect(jsonPath("$.customerId").value(customerId.toString()))
+                .andExpect(jsonPath("$.merchantId").value(merchantId.toString()))
+                .andExpect(jsonPath("$.pointsBalance").value(112));
     }
 
-    /**
-     * Vérifie qu'une requête de transaction invalide
-     * retourne HTTP 400.
-     *
-     * @throws Exception si l'exécution de la requête HTTP échoue
-     */
     @Test
     void shouldRejectInvalidTransactionRequest() throws Exception {
         UUID customerId = UUID.randomUUID();
-
         authenticateAsCustomer(customerId);
 
         UUID merchantId = UUID.randomUUID();
@@ -322,17 +284,10 @@ class TransactionControllerWebMvcTest {
                 .andExpect(jsonPath("$.timestamp").exists());
     }
 
-    /**
-     * Vérifie qu'une IllegalArgumentException retourne HTTP 400.
-     *
-     * @throws Exception si l'exécution de la requête HTTP échoue
-     */
     @Test
     void shouldReturnBadRequestWhenTransactionCreationFails()
             throws Exception {
-
         UUID customerId = UUID.randomUUID();
-
         authenticateAsCustomer(customerId);
 
         UUID loyaltyId = UUID.randomUUID();
@@ -359,9 +314,7 @@ class TransactionControllerWebMvcTest {
         when(loyaltyService.addPointsFromTicket(
                 eq(loyaltyId),
                 eq(ticket)
-        )).thenThrow(
-                new IllegalArgumentException("Loyalty not found")
-        );
+        )).thenThrow(new IllegalArgumentException("Loyalty not found"));
 
         mockMvc.perform(
                         post("/transactions")
@@ -390,22 +343,14 @@ class TransactionControllerWebMvcTest {
                 ))
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.error").value("Bad Request"))
-                .andExpect(jsonPath("$.message")
-                        .value("Loyalty not found"))
+                .andExpect(jsonPath("$.message").value("Loyalty not found"))
                 .andExpect(jsonPath("$.timestamp").exists());
     }
 
-    /**
-     * Vérifie qu'une IllegalStateException retourne HTTP 409.
-     *
-     * @throws Exception si l'exécution de la requête HTTP échoue
-     */
     @Test
     void shouldReturnConflictWhenTransactionCreationFails()
             throws Exception {
-
         UUID customerId = UUID.randomUUID();
-
         authenticateAsCustomer(customerId);
 
         UUID loyaltyId = UUID.randomUUID();
@@ -432,11 +377,9 @@ class TransactionControllerWebMvcTest {
         when(loyaltyService.addPointsFromTicket(
                 eq(loyaltyId),
                 eq(ticket)
-        )).thenThrow(
-                new IllegalStateException(
-                        "Ce ticket a déjà été utilisé."
-                )
-        );
+        )).thenThrow(new IllegalStateException(
+                "Ce ticket a déjà été utilisé."
+        ));
 
         mockMvc.perform(
                         post("/transactions")
@@ -470,12 +413,6 @@ class TransactionControllerWebMvcTest {
                 .andExpect(jsonPath("$.timestamp").exists());
     }
 
-    /**
-     * Vérifie qu'un marchand authentifié peut créer
-     * une transaction manuelle.
-     *
-     * @throws Exception si l'exécution de la requête HTTP échoue
-     */
     @Test
     void shouldCreateManualTransactionAsMerchant() throws Exception {
         UUID userId = UUID.randomUUID();
@@ -485,13 +422,12 @@ class TransactionControllerWebMvcTest {
 
         authenticateAsMerchant(userId, merchantId);
 
-        ManualTransactionRequest request =
-                new ManualTransactionRequest(
-                        loyaltyId,
-                        merchantId,
-                        customerId,
-                        new BigDecimal("112.00")
-                );
+        ManualTransactionRequest request = new ManualTransactionRequest(
+                loyaltyId,
+                merchantId,
+                customerId,
+                new BigDecimal("112.00")
+        );
 
         Loyalty loyalty = new Loyalty(
                 loyaltyId,
@@ -502,22 +438,21 @@ class TransactionControllerWebMvcTest {
                 LocalDateTime.of(2026, 6, 15, 12, 31)
         );
 
-        CreateTransactionResponse response =
-                new CreateTransactionResponse(
-                        loyaltyId,
-                        customerId,
-                        merchantId,
-                        112,
-                        loyalty.getUpdatedAt()
-                );
+        CreateTransactionResponse response = new CreateTransactionResponse(
+                loyaltyId,
+                customerId,
+                merchantId,
+                112,
+                loyalty.getUpdatedAt()
+        );
 
-        when(manualTransactionRequestMapper.toRequest(
-                any(ManualTransactionRequest.class)
-        )).thenReturn(request);
+        when(manualTransactionRequestMapper.toRequest(any(
+                ManualTransactionRequest.class
+        ))).thenReturn(request);
 
         when(loyaltyService.addPointsManually(
                 eq(loyaltyId),
-                eq(merchantId),
+                eq(userId),
                 eq(customerId),
                 eq(new BigDecimal("112.00"))
         )).thenReturn(loyalty);
@@ -546,31 +481,22 @@ class TransactionControllerWebMvcTest {
                 .andExpect(content().contentTypeCompatibleWith(
                         MediaType.APPLICATION_JSON_VALUE
                 ))
-                .andExpect(jsonPath("$.loyaltyId")
-                        .value(loyaltyId.toString()))
-                .andExpect(jsonPath("$.customerId")
-                        .value(customerId.toString()))
-                .andExpect(jsonPath("$.merchantId")
-                        .value(merchantId.toString()))
-                .andExpect(jsonPath("$.pointsBalance")
-                        .value(112));
+                .andExpect(jsonPath("$.loyaltyId").value(loyaltyId.toString()))
+                .andExpect(jsonPath("$.customerId").value(customerId.toString()))
+                .andExpect(jsonPath("$.merchantId").value(merchantId.toString()))
+                .andExpect(jsonPath("$.pointsBalance").value(112));
 
         verify(loyaltyService).addPointsManually(
                 loyaltyId,
-                merchantId,
+                userId,
                 customerId,
                 new BigDecimal("112.00")
         );
     }
 
-    /**
-     * Vérifie qu'un client authentifié ne peut pas créer
-     * une transaction manuelle.
-     *
-     * @throws Exception si l'exécution de la requête HTTP échoue
-     */
     @Test
-    void shouldRejectManualTransactionForCustomer() throws Exception {
+    void shouldCallServiceForCustomerWhenCreatingManualTransaction()
+            throws Exception {
         UUID userId = UUID.randomUUID();
         UUID merchantId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
@@ -578,8 +504,43 @@ class TransactionControllerWebMvcTest {
 
         authenticateAsCustomer(userId);
 
-        when(userRepository.findById(userId))
-                .thenReturn(Optional.empty());
+        ManualTransactionRequest request = new ManualTransactionRequest(
+                loyaltyId,
+                merchantId,
+                customerId,
+                new BigDecimal("112.00")
+        );
+
+        Loyalty loyalty = new Loyalty(
+                loyaltyId,
+                customerId,
+                merchantId,
+                112,
+                LocalDateTime.of(2026, 6, 15, 12, 30),
+                LocalDateTime.of(2026, 6, 15, 12, 31)
+        );
+
+        CreateTransactionResponse response = new CreateTransactionResponse(
+                loyaltyId,
+                customerId,
+                merchantId,
+                112,
+                loyalty.getUpdatedAt()
+        );
+
+        when(manualTransactionRequestMapper.toRequest(any(
+                ManualTransactionRequest.class
+        ))).thenReturn(request);
+
+        when(loyaltyService.addPointsManually(
+                eq(loyaltyId),
+                eq(userId),
+                eq(customerId),
+                eq(new BigDecimal("112.00"))
+        )).thenReturn(loyalty);
+
+        when(createTransactionResponseMapper.toResponse(eq(loyalty)))
+                .thenReturn(response);
 
         mockMvc.perform(
                         post("/transactions/manual")
@@ -598,103 +559,106 @@ class TransactionControllerWebMvcTest {
                                         customerId
                                 ))
                 )
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(
                         MediaType.APPLICATION_JSON_VALUE
                 ))
-                .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.error").value("Bad Request"))
-                .andExpect(jsonPath("$.message")
-                        .value(
-                                "L'utilisateur authentifié n'est pas un marchand."
-                        ))
-                .andExpect(jsonPath("$.timestamp").exists());
+                .andExpect(jsonPath("$.loyaltyId").value(loyaltyId.toString()));
+
+        verify(loyaltyService).addPointsManually(
+                loyaltyId,
+                userId,
+                customerId,
+                new BigDecimal("112.00")
+        );
     }
 
-    /**
-     * Vérifie qu'un marchand ne peut pas créer une transaction
-     * pour un autre marchand.
-     *
-     * @throws Exception si l'exécution de la requête HTTP échoue
-     */
     @Test
-    void shouldRejectManualTransactionForAnotherMerchant() throws Exception {
+    void shouldCallServiceWhenManualTransactionTargetsAnotherMerchant()
+            throws Exception {
         UUID userId = UUID.randomUUID();
         UUID authenticatedMerchantId = UUID.randomUUID();
         UUID requestedMerchantId = UUID.randomUUID();
         UUID loyaltyId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
 
-        authenticateAsMerchant(
-                userId,
-                authenticatedMerchantId
+        authenticateAsMerchant(userId, authenticatedMerchantId);
+
+        ManualTransactionRequest request = new ManualTransactionRequest(
+                loyaltyId,
+                requestedMerchantId,
+                customerId,
+                new BigDecimal("112.00")
         );
 
-        ManualTransactionRequest request =
-                new ManualTransactionRequest(
-                        loyaltyId,
-                        requestedMerchantId,
-                        customerId,
-                        new BigDecimal("112.00")
-                );
+        Loyalty loyalty = new Loyalty(
+                loyaltyId,
+                customerId,
+                requestedMerchantId,
+                112,
+                LocalDateTime.of(2026, 6, 15, 12, 30),
+                LocalDateTime.of(2026, 6, 15, 12, 31)
+        );
 
-        when(manualTransactionRequestMapper.toRequest(
-                any(ManualTransactionRequest.class)
-        )).thenReturn(request);
+        CreateTransactionResponse response = new CreateTransactionResponse(
+                loyaltyId,
+                customerId,
+                requestedMerchantId,
+                112,
+                loyalty.getUpdatedAt()
+        );
+
+        when(manualTransactionRequestMapper.toRequest(any(
+                ManualTransactionRequest.class
+        ))).thenReturn(request);
+
+        when(loyaltyService.addPointsManually(
+                eq(loyaltyId),
+                eq(userId),
+                eq(customerId),
+                eq(new BigDecimal("112.00"))
+        )).thenReturn(loyalty);
+
+        when(createTransactionResponseMapper.toResponse(eq(loyalty)))
+                .thenReturn(response);
 
         mockMvc.perform(
                         post("/transactions/manual")
                                 .principal(createAuthentication(userId))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
-                                {
-                                "loyaltyId": "%s",
-                                "merchantId": "%s",
-                                "customerId": "%s",
-                                "amount": 112.00
-                                }
-                                """.formatted(
+                                    {
+                                    "loyaltyId": "%s",
+                                    "merchantId": "%s",
+                                    "customerId": "%s",
+                                    "amount": 112.00
+                                    }
+                                    """.formatted(
                                         loyaltyId,
                                         requestedMerchantId,
                                         customerId
                                 ))
                 )
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(
                         MediaType.APPLICATION_JSON_VALUE
-                ))
-                .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.error").value("Bad Request"))
-                .andExpect(jsonPath("$.message")
-                        .value(
-                                "Le marchand fourni ne correspond pas "
-                                        + "au marchand authentifié."
-                        ))
-                .andExpect(jsonPath("$.timestamp").exists());
+                ));
 
-        verify(loyaltyService, never()).addPointsManually(
-                any(UUID.class),
-                any(UUID.class),
-                any(UUID.class),
-                any(BigDecimal.class)
+        verify(loyaltyService).addPointsManually(
+                loyaltyId,
+                userId,
+                customerId,
+                new BigDecimal("112.00")
         );
     }
 
-    /**
-     * Vérifie qu'une requête manuelle invalide retourne HTTP 400.
-     *
-     * @throws Exception si l'exécution de la requête HTTP échoue
-     */
     @Test
     void shouldRejectInvalidManualTransactionRequest() throws Exception {
         UUID userId = UUID.randomUUID();
         UUID merchantId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
 
-        authenticateAsMerchant(
-                userId,
-                merchantId
-        );
+        authenticateAsMerchant(userId, merchantId);
 
         mockMvc.perform(
                         post("/transactions/manual")
@@ -722,15 +686,9 @@ class TransactionControllerWebMvcTest {
                 .andExpect(jsonPath("$.timestamp").exists());
     }
 
-    /**
-     * Vérifie qu'une IllegalArgumentException retourne HTTP 400.
-     *
-     * @throws Exception si l'exécution de la requête HTTP échoue
-     */
     @Test
     void shouldReturnBadRequestWhenManualTransactionCreationFails()
             throws Exception {
-
         UUID userId = UUID.randomUUID();
         UUID merchantId = UUID.randomUUID();
         UUID loyaltyId = UUID.randomUUID();
@@ -738,26 +696,23 @@ class TransactionControllerWebMvcTest {
 
         authenticateAsMerchant(userId, merchantId);
 
-        ManualTransactionRequest request =
-                new ManualTransactionRequest(
-                        loyaltyId,
-                        merchantId,
-                        customerId,
-                        new BigDecimal("112.00")
-                );
+        ManualTransactionRequest request = new ManualTransactionRequest(
+                loyaltyId,
+                merchantId,
+                customerId,
+                new BigDecimal("112.00")
+        );
 
-        when(manualTransactionRequestMapper.toRequest(
-                any(ManualTransactionRequest.class)
-        )).thenReturn(request);
+        when(manualTransactionRequestMapper.toRequest(any(
+                ManualTransactionRequest.class
+        ))).thenReturn(request);
 
         when(loyaltyService.addPointsManually(
                 eq(loyaltyId),
-                eq(merchantId),
+                eq(userId),
                 eq(customerId),
                 eq(new BigDecimal("112.00"))
-        )).thenThrow(
-                new IllegalArgumentException("Loyalty introuvable")
-        );
+        )).thenThrow(new IllegalArgumentException("Loyalty introuvable"));
 
         mockMvc.perform(
                         post("/transactions/manual")
@@ -782,20 +737,13 @@ class TransactionControllerWebMvcTest {
                 ))
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.error").value("Bad Request"))
-                .andExpect(jsonPath("$.message")
-                        .value("Loyalty introuvable"))
+                .andExpect(jsonPath("$.message").value("Loyalty introuvable"))
                 .andExpect(jsonPath("$.timestamp").exists());
     }
 
-    /**
-     * Vérifie qu'une IllegalStateException retourne HTTP 409.
-     *
-     * @throws Exception si l'exécution de la requête HTTP échoue
-     */
     @Test
     void shouldReturnConflictWhenManualTransactionCreationFails()
             throws Exception {
-
         UUID userId = UUID.randomUUID();
         UUID merchantId = UUID.randomUUID();
         UUID loyaltyId = UUID.randomUUID();
@@ -803,28 +751,25 @@ class TransactionControllerWebMvcTest {
 
         authenticateAsMerchant(userId, merchantId);
 
-        ManualTransactionRequest request =
-                new ManualTransactionRequest(
-                        loyaltyId,
-                        merchantId,
-                        customerId,
-                        new BigDecimal("112.00")
-                );
+        ManualTransactionRequest request = new ManualTransactionRequest(
+                loyaltyId,
+                merchantId,
+                customerId,
+                new BigDecimal("112.00")
+        );
 
-        when(manualTransactionRequestMapper.toRequest(
-                any(ManualTransactionRequest.class)
-        )).thenReturn(request);
+        when(manualTransactionRequestMapper.toRequest(any(
+                ManualTransactionRequest.class
+        ))).thenReturn(request);
 
         when(loyaltyService.addPointsManually(
                 eq(loyaltyId),
-                eq(merchantId),
+                eq(userId),
                 eq(customerId),
                 eq(new BigDecimal("112.00"))
-        )).thenThrow(
-                new IllegalStateException(
-                        "La transaction ne génère aucun point."
-                )
-        );
+        )).thenThrow(new IllegalStateException(
+                "La transaction ne génère aucun point."
+        ));
 
         mockMvc.perform(
                         post("/transactions/manual")
@@ -850,22 +795,13 @@ class TransactionControllerWebMvcTest {
                 .andExpect(jsonPath("$.status").value(409))
                 .andExpect(jsonPath("$.error").value("Conflict"))
                 .andExpect(jsonPath("$.message")
-                        .value(
-                                "La transaction ne génère aucun point."
-                        ))
+                        .value("La transaction ne génère aucun point."))
                 .andExpect(jsonPath("$.timestamp").exists());
     }
 
-    /**
-     * Vérifie que le endpoint de récupération d'un ticket
-     * retourne HTTP 200 lorsque le ticket existe.
-     *
-     * @throws Exception si l'exécution de la requête HTTP échoue
-     */
     @Test
     void shouldGetTicketById() throws Exception {
         UUID customerId = UUID.randomUUID();
-
         authenticateAsCustomer(customerId);
 
         UUID ticketId = UUID.randomUUID();
@@ -914,30 +850,17 @@ class TransactionControllerWebMvcTest {
                 .andExpect(content().contentTypeCompatibleWith(
                         MediaType.APPLICATION_JSON_VALUE
                 ))
-                .andExpect(jsonPath("$.id")
-                        .value(ticketId.toString()))
-                .andExpect(jsonPath("$.merchantId")
-                        .value(merchantId.toString()))
-                .andExpect(jsonPath("$.customerId")
-                        .value(customerId.toString()))
-                .andExpect(jsonPath("$.ticketNumber")
-                        .value("TICKET-001"))
-                .andExpect(jsonPath("$.amount")
-                        .value(112.00))
-                .andExpect(jsonPath("$.status")
-                        .value("VALIDATED"));
+                .andExpect(jsonPath("$.id").value(ticketId.toString()))
+                .andExpect(jsonPath("$.merchantId").value(merchantId.toString()))
+                .andExpect(jsonPath("$.customerId").value(customerId.toString()))
+                .andExpect(jsonPath("$.ticketNumber").value("TICKET-001"))
+                .andExpect(jsonPath("$.amount").value(112.00))
+                .andExpect(jsonPath("$.status").value("VALIDATED"));
     }
 
-    /**
-     * Vérifie que le endpoint de récupération d'un ticket
-     * retourne HTTP 404 lorsque le ticket n'existe pas.
-     *
-     * @throws Exception si l'exécution de la requête HTTP échoue
-     */
     @Test
     void shouldReturnNotFoundWhenTicketDoesNotExist() throws Exception {
         UUID customerId = UUID.randomUUID();
-
         authenticateAsCustomer(customerId);
 
         UUID ticketId = UUID.randomUUID();
@@ -952,12 +875,6 @@ class TransactionControllerWebMvcTest {
                 .andExpect(status().isNotFound());
     }
 
-    /**
-     * Vérifie que le endpoint retourne toutes les transactions
-     * du client authentifié.
-     *
-     * @throws Exception si l'exécution de la requête HTTP échoue
-     */
     @Test
     void shouldGetCustomerTransactions() throws Exception {
         UUID customerId = UUID.randomUUID();
@@ -971,15 +888,14 @@ class TransactionControllerWebMvcTest {
                 LocalDateTime.of(2026, 6, 15, 12, 30)
         );
 
-        LoyaltyTransactionResponse response =
-                new LoyaltyTransactionResponse(
-                        transaction.getId(),
-                        transaction.getLoyaltyId(),
-                        transaction.getTicketId(),
-                        transaction.getPoints(),
-                        transaction.getDescription(),
-                        transaction.getCreatedAt()
-                );
+        LoyaltyTransactionResponse response = new LoyaltyTransactionResponse(
+                transaction.getId(),
+                transaction.getLoyaltyId(),
+                transaction.getTicketId(),
+                transaction.getPoints(),
+                transaction.getDescription(),
+                transaction.getCreatedAt()
+        );
 
         when(loyaltyService.getTransactionsByCustomer(customerId))
                 .thenReturn(List.of(transaction));
@@ -1002,24 +918,13 @@ class TransactionControllerWebMvcTest {
                         .value(transaction.getLoyaltyId().toString()))
                 .andExpect(jsonPath("$[0].ticketId")
                         .value(transaction.getTicketId().toString()))
-                .andExpect(jsonPath("$[0].points")
-                        .value(25))
-                .andExpect(jsonPath("$[0].description")
-                        .value("Achat"));
+                .andExpect(jsonPath("$[0].points").value(25))
+                .andExpect(jsonPath("$[0].description").value("Achat"));
 
-        verify(loyaltyService)
-                .getTransactionsByCustomer(customerId);
-
-        verify(loyaltyTransactionResponseMapper)
-                .toResponse(transaction);
+        verify(loyaltyService).getTransactionsByCustomer(customerId);
+        verify(loyaltyTransactionResponseMapper).toResponse(transaction);
     }
 
-    /**
-     * Vérifie que le endpoint retourne toutes les transactions
-     * du marchand authentifié.
-     *
-     * @throws Exception si l'exécution de la requête HTTP échoue
-     */
     @Test
     void shouldGetMerchantTransactions() throws Exception {
         UUID merchantId = UUID.randomUUID();
@@ -1033,15 +938,14 @@ class TransactionControllerWebMvcTest {
                 LocalDateTime.of(2026, 6, 15, 14, 30)
         );
 
-        LoyaltyTransactionResponse response =
-                new LoyaltyTransactionResponse(
-                        transaction.getId(),
-                        transaction.getLoyaltyId(),
-                        transaction.getTicketId(),
-                        transaction.getPoints(),
-                        transaction.getDescription(),
-                        transaction.getCreatedAt()
-                );
+        LoyaltyTransactionResponse response = new LoyaltyTransactionResponse(
+                transaction.getId(),
+                transaction.getLoyaltyId(),
+                transaction.getTicketId(),
+                transaction.getPoints(),
+                transaction.getDescription(),
+                transaction.getCreatedAt()
+        );
 
         when(loyaltyService.getTransactionsByMerchant(merchantId))
                 .thenReturn(List.of(transaction));
@@ -1064,28 +968,14 @@ class TransactionControllerWebMvcTest {
                         .value(transaction.getLoyaltyId().toString()))
                 .andExpect(jsonPath("$[0].ticketId")
                         .value(transaction.getTicketId().toString()))
-                .andExpect(jsonPath("$[0].points")
-                        .value(30))
-                .andExpect(jsonPath("$[0].description")
-                        .value("Achat"));
+                .andExpect(jsonPath("$[0].points").value(30))
+                .andExpect(jsonPath("$[0].description").value("Achat"));
 
-        verify(loyaltyService)
-                .getTransactionsByMerchant(merchantId);
-
-        verify(loyaltyTransactionResponseMapper)
-                .toResponse(transaction);
+        verify(loyaltyService).getTransactionsByMerchant(merchantId);
+        verify(loyaltyTransactionResponseMapper).toResponse(transaction);
     }
 
-    /**
-     * Authentifie la requête en tant que marchand.
-     *
-     * @param userId identifiant de l'utilisateur
-     * @param merchantId identifiant du marchand
-     */
-    private void authenticateAsMerchant(
-            UUID userId,
-            UUID merchantId
-    ) {
+    private void authenticateAsMerchant(UUID userId, UUID merchantId) {
         when(userRepository.findById(userId))
                 .thenReturn(Optional.of(merchantManager));
 
@@ -1093,39 +983,16 @@ class TransactionControllerWebMvcTest {
                 .thenReturn(merchantId);
     }
 
-    /**
-     * Authentifie la requête en tant que client.
-     *
-     * @param userId identifiant de l'utilisateur
-     */
     private void authenticateAsCustomer(UUID userId) {
         when(userRepository.findById(userId))
                 .thenReturn(Optional.empty());
     }
 
-    /**
-     * Crée une authentification simulée contenant l'identifiant
-     * utilisateur attendu par le controller.
-     *
-     * @param userId identifiant de l'utilisateur
-     * @return authentification simulée
-     */
     private Authentication createAuthentication(UUID userId) {
-        return new UsernamePasswordAuthenticationToken(
-                userId,
-                null
-        );
+        return new UsernamePasswordAuthenticationToken(userId, null);
     }
 
-    /**
-     * Construit le cookie contenant l'access token simulé.
-     *
-     * @return cookie d'authentification
-     */
     private Cookie accessTokenCookie() {
-        return new Cookie(
-                ACCESS_TOKEN_COOKIE,
-                ACCESS_TOKEN
-        );
+        return new Cookie(ACCESS_TOKEN_COOKIE, ACCESS_TOKEN);
     }
 }

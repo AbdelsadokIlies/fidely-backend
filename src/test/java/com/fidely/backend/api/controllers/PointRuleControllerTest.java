@@ -3,10 +3,8 @@ package com.fidely.backend.api.controllers;
 import com.fidely.backend.api.dtos.models.loyalties.rewards.PointRuleResponse;
 import com.fidely.backend.api.dtos.models.loyalties.rewards.UpdatePointRuleRequest;
 import com.fidely.backend.application.port.in.IPointRuleService;
-import com.fidely.backend.application.port.out.IUserRepository;
 import com.fidely.backend.domain.models.loyalties.Rewards.PointRule;
 import com.fidely.backend.domain.models.loyalties.Rewards.RoundingMethod;
-import com.fidely.backend.domain.models.users.MerchantManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,7 +14,6 @@ import org.springframework.security.core.Authentication;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -37,17 +34,12 @@ class PointRuleControllerTest {
     private PointRuleController controller;
 
     private UUID userId;
-    private UUID merchantId;
-    private MerchantManager merchantManager;
 
     @BeforeEach
     void setUp() {
-        controller = new PointRuleController(
-                pointRuleService
-        );
+        controller = new PointRuleController(pointRuleService);
 
         userId = UUID.randomUUID();
-        merchantId = UUID.randomUUID();
 
         when(authentication.getPrincipal())
                 .thenReturn(userId);
@@ -57,8 +49,8 @@ class PointRuleControllerTest {
     void shouldGetCurrentPointRule() {
         PointRule pointRule = createPointRule();
 
-        when(pointRuleService.getValidPointRule(
-                eq(merchantId),
+        when(pointRuleService.getValidPointRuleByUser(
+                eq(userId),
                 any(LocalDateTime.class)
         )).thenReturn(Optional.of(pointRule));
 
@@ -85,16 +77,16 @@ class PointRuleControllerTest {
                 .isEqualTo(pointRule.isActive());
 
         verify(pointRuleService)
-                .getValidPointRule(
-                        eq(merchantId),
+                .getValidPointRuleByUser(
+                        eq(userId),
                         any(LocalDateTime.class)
                 );
     }
 
     @Test
     void shouldReturnNotFoundWhenNoCurrentPointRuleExists() {
-        when(pointRuleService.getValidPointRule(
-                eq(merchantId),
+        when(pointRuleService.getValidPointRuleByUser(
+                eq(userId),
                 any(LocalDateTime.class)
         )).thenReturn(Optional.empty());
 
@@ -107,8 +99,8 @@ class PointRuleControllerTest {
                 .isNull();
 
         verify(pointRuleService)
-                .getValidPointRule(
-                        eq(merchantId),
+                .getValidPointRuleByUser(
+                        eq(userId),
                         any(LocalDateTime.class)
                 );
     }
@@ -118,17 +110,18 @@ class PointRuleControllerTest {
         LocalDateTime validFrom =
                 LocalDateTime.of(2026, 1, 1, 0, 0);
 
-        var request =
-                new UpdatePointRuleRequest(
-                        new BigDecimal("1.5000"),
-                        RoundingMethod.ROUND,
-                        true,
-                        validFrom,
-                        null
-                );
+        var request = new UpdatePointRuleRequest(
+                new BigDecimal("1.5000"),
+                RoundingMethod.ROUND,
+                true,
+                validFrom,
+                null
+        );
+
+        UUID generatedRuleId = UUID.randomUUID();
 
         PointRule savedPointRule = new PointRule(
-                UUID.randomUUID(),
+                generatedRuleId,
                 request.pointsPerCurrencyUnit(),
                 request.roundingMethod(),
                 request.active(),
@@ -138,12 +131,12 @@ class PointRuleControllerTest {
         );
 
         when(pointRuleService.createPointRule(
-                eq(savedPointRule.getId()),
-                any(BigDecimal.class),
-                any(RoundingMethod.class),
-                any(boolean.class),
-                any(LocalDateTime.class),
-                any(LocalDateTime.class),
+                eq(userId),
+                eq(request.pointsPerCurrencyUnit()),
+                eq(request.roundingMethod()),
+                eq(request.active()),
+                eq(request.validFrom()),
+                eq(request.validTo()),
                 any(LocalDateTime.class)
         )).thenReturn(savedPointRule);
 
@@ -180,12 +173,12 @@ class PointRuleControllerTest {
 
         verify(pointRuleService)
                 .createPointRule(
-                        eq(savedPointRule.getId()),
-                        any(BigDecimal.class),
-                        any(RoundingMethod.class),
-                        any(boolean.class),
-                        any(LocalDateTime.class),
-                        any(LocalDateTime.class),
+                        eq(userId),
+                        eq(request.pointsPerCurrencyUnit()),
+                        eq(request.roundingMethod()),
+                        eq(request.active()),
+                        eq(request.validFrom()),
+                        eq(request.validTo()),
                         any(LocalDateTime.class)
                 );
     }
